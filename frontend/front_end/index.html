@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Matcher</title>
+
+     <!-- ✅ POPPINS FONT -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <script>
+        window.RESUME_API_BASE_URL = "{{ APP_CONFIG['API_CONFIG']['RESUME_BASE_URL'] }}";
+    </script>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+
+    <link rel="stylesheet" href="/front_end/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <img src="/static/images/logo.png" alt="Logo" width="30" height="30" class="d-inline-block align-text-top">
+                Guhatek <span class="candidate-tracking-system">Candidate Tracking System</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" data-bs-target="#dataTab">
+                            <i class="bi bi-database"></i>
+                            Data Management
+                        </a>
+                    </li>
+                    {% if is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/resume-matcher">
+                            <i class="bi bi-file-earmark-text"></i>
+                            Resume Filter
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-target="#analysisTab">
+                            <i class="bi bi-bar-chart-line"></i>
+                            Analytics
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if is_admin %}
+                    <li class="nav-item" id="userManagementNav">
+                        <a class="nav-link" href="/users">
+                            <i class="bi bi-people"></i>
+                            User Management
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="resumeMatcherTab">
+                <div class="container">
+                    <h1 class="header">Resume Matcher</h1>
+
+                    <label for="jobDescription">Job Description</label>
+                    <textarea id="jobDescription" placeholder="Enter job description here">
+Technical Skills
+CloudPlatforms: AWS(IAM,S3,EC2,VPC,CloudWatch,Lambda,SNS,EBS,EFS,EventNotifications)
+DevOpsTools: Terraform,Jenkins,Ansible,Git,GitHub,Docker,Kubernetes,VisualStudio
+Languages: C,Python(Basic)
+OperatingSystems: Linux(Basiccommands)
+Protocols: I2C,UART,SPI,USART
+LanguagesKnown: English,Tamil,Telugu
+</textarea>
+
+                    <label for="folderPath">Local Folder Path</label>
+                    <input type="text" id="folderPath" placeholder="C:\Users\YourName\Resumes">
+
+                    <button id="submitBtn">Find Top Resume</button>
+                    <p id="processingTime"></p>
+
+                    <div class="results">
+                        <div class="top-resume">
+                            <h2>Top Resume</h2>
+                            <p id="topResumeName"></p>
+                            <p id="topResumeScore"></p>
+                            <p id="topResumeMatches"></p>
+                        </div>
+                        <div class="all-results">
+                            <h2>All Results</h2>
+                            <ul id="allResults"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/front_end/app.js"></script>
+</body>
+</html>

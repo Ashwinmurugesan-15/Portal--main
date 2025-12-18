@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Tracking System</title>
+    <!-- Adding cache-busting parameter to force CSS reload -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css?v=1.0" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css?v=1.0" rel="stylesheet">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script>
+        window.API_BASE_URL = "{{ APP_CONFIG['API_CONFIG']['BASE_URL'] }}";
+        window.RESUME_API_BASE_URL = "{{ APP_CONFIG['API_CONFIG']['RESUME_BASE_URL'] }}";
+    </script>
+    <style>
+        :root {
+            --primary-color: #5b5fef;
+            --secondary-color: #7276f3;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #f97070;
+            --info-color: #2775f4;
+            --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Filter container styles */
+        #filterContainer {
+            display: none;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 2rem;
+            /* Increased gap for better spacing between items */
+            padding: 1rem 0;
+        }
+
+        #filterContainer .filter-item {
+            flex: 0 0 auto;
+            width: auto;
+            min-width: 160px;
+            max-width: 320px;
+        }
+
+        #filterContainer .form-select {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.9rem;
+            height: calc(1.5em + 0.5rem + 2px);
+        }
+
+        #filterContainer .form-label {
+            font-size: 0.9rem;
+            /* Increased from 0.8rem */
+            font-weight: 600;
+            /* Make labels more prominent */
+            margin-bottom: 0.3rem;
+        }
+
+        /* Responsive adjustments for filter container */
+        @media (max-width: 1200px) {
+            #filterContainer .filter-item {
+                min-width: 150px;
+                max-width: 180px;
+            }
+        }
+
+        @media (max-width: 992px) {
+            #filterContainer .filter-item {
+                min-width: 140px;
+                max-width: 160px;
+            }
+
+            #filterContainer .form-select {
+                font-size: 0.85rem;
+                padding: 0.2rem 0.6rem;
+                height: calc(1.5em + 0.4rem + 2px);
+            }
+
+            #filterContainer .form-label {
+                font-size: 0.85rem;
+                /* Adjusted for smaller screens */
+            }
+        }
+
+        @media (max-width: 768px) {
+            #filterContainer {
+                gap: 0.85rem;
+            }
+
+            #filterContainer .filter-item {
+                min-width: 130px;
+                max-width: 150px;
+            }
+
+            #filterContainer .form-label {
+                font-size: 0.8rem;
+                /* Further adjusted for mobile */
+            }
+        }
+
+        @media (max-width: 576px) {
+            #filterContainer .filter-item {
+                min-width: 100%;
+                max-width: 100%;
+            }
+
+            #filterContainer .form-select {
+                padding: 0.4rem 0.75rem;
+                font-size: 1rem;
+                height: calc(1.5em + 0.5rem + 2px);
+            }
+
+            #filterContainer .form-label {
+                font-size: 0.9rem;
+                /* Larger on mobile for better readability */
+            }
+        }
+
+        body {
+            background: #2c3e50;
+            /* Dark blue/grey background */
+            background-attachment: fixed;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+        }
+
+        /* Custom styles for compact headers with higher specificity */
+        .card .card-header {
+            font-size: 1.25rem !important;
+            font-weight: 700 !important;
+            padding: 1rem 1.5rem !important;
+        }
+
+        .card .card-header h5 {
+            font-size: 1.25rem !important;
+            font-weight: 700 !important;
+            margin-bottom: 0 !important;
+        }
+
+        /* More compact header for monthly statistics */
+        #monthlyStatsTable thead th {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 1rem !important;
+            color: #212529 !important; /* Darker text color */
+            font-weight: bold !important;
+        }
+
+        /* More compact header for position statistics */
+        .card-header.position-stats-header {
+            font-size: 1.3rem !important;
+            font-weight: 700 !important;
+            padding: 0.75rem 1rem !important;
+        }
+
+        /* Navbar Styling */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 0.75rem 0;
+            min-height: 70px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            letter-spacing: -0.5px;
+            color: #637ef8 !important;
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-brand i {
+            font-size: 1.25rem;
+            margin-right: 0.5rem;
+        }
+
+        .navbar-nav {
+            gap: 0.5rem;
+        }
+
+        .navbar-nav .nav-link {
+            color: #667eea !important;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 0.625rem 1.25rem !important;
+            margin: 0 0.25rem;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .navbar-nav .nav-link i {
+            font-size: 1.125rem;
+        }
+
+        .navbar-nav .nav-link:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .navbar-nav .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Card Styling */
+        .card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #5850e8 100%);
+            color: white;
+            font-weight: 700;
+            border: none;
+            padding: 1.75rem 2rem;
+            border-radius: 20px 20px 0 0 !important;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Button Styling */
+        .btn {
+            border-radius: 12px;
+            font-weight: normal;
+            padding: 0.75rem 2rem;
+            transition: all 0.3s ease;
+            border: none;
+            text-transform: none;
+            letter-spacing: 0.5px;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #5a74d5 100%);
+            box-shadow: 0 4px 15px rgba(31, 31, 32, 0.4);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        /* Table Styling */
+        .table-responsive {
+            max-height: 600px;
+            overflow-y: auto;
+            overflow-x: auto;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table thead th {
+            background-color: #f7f9fc;
+            color: #2d3748;
+            font-weight: bold !important;
+            text-transform: none;
+            font-size: 14px;
+            font-family: 'Poppins', sans-serif;
+            letter-spacing: 0;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 0.625rem 1rem;
+        }
+
+        /* Sticky first three columns */
+        .table thead th.sticky-column,
+        .table tbody td.sticky-column {
+            position: sticky;
+            background-color: #f1f5f9;
+            z-index: 11;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .table thead th.sticky-column {
+            z-index: 12;
+            background-color: #f1f5f9 !important;
+        }
+
+        .table tbody td.sticky-column {
+            background-color: white;
+        }
+
+        /* First column (Date) - always first */
+        .table thead th:first-child.sticky-column,
+        .table tbody td:first-child.sticky-column {
+            left: 0;
+            min-width: 120px;
+        }
+
+        /* Second column (Name) - always second */
+        .table thead th:nth-child(2).sticky-column,
+        .table tbody td:nth-child(2).sticky-column {
+            left: 120px;
+            min-width: 180px;
+        }
+
+        /* Third column (Email ID) - always third */
+        .table thead th:nth-child(3).sticky-column,
+        .table tbody td:nth-child(3).sticky-column {
+            left: 300px;
+            min-width: 220px;
+        }
+
+        /* Ensure row backgrounds work with sticky columns - row colors take precedence */
+        .table tbody tr:hover {
+            background-color: #f8fafc;
+            transform: scale(1.002);
+        }
+
+        /* Ensure hover effect works properly with sticky columns */
+        .table tbody tr:hover td.sticky-column {
+            background-color: #f8fafc !important;
+        }
+
+        /* Application Status cell colors - For all specific statuses */
+        td[data-column='Application Status'] select.status-onhold {
+            background-color: #c084fc !important;
+            /* Purple color for On Hold */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        td[data-column='Application Status'] select.status-joined {
+            background-color: #3b82f6 !important;
+            /* Blue color for Joined */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        td[data-column='Application Status'] select.status-accepted {
+            background-color: #10b981 !important;
+            /* Green color for Accepted */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        td[data-column='Application Status'] select.status-rejected {
+            background-color: #ef4444 !important;
+            /* Red color for Rejected */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        td[data-column='Application Status'] select.status-proceed {
+            background-color: #f59e0b !important;
+            /* Amber color for Proceed Further */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        /* Individual option colors */
+        td[data-column='Application Status'] select option[data-status='On Hold'] {
+            background-color: #c084fc !important;
+            /* Purple color for On Hold */
+            color: white;
+        }
+
+        td[data-column='Application Status'] select option[data-status='Joined'] {
+            background-color: #3b82f6 !important;
+            /* Blue color for Joined */
+            color: white;
+        }
+
+        td[data-column='Application Status'] select option[data-status='Accepted'] {
+            background-color: #10b981 !important;
+            /* Green color for Accepted */
+            color: white;
+        }
+
+        td[data-column='Application Status'] select option[data-status='Rejected'] {
+            background-color: #ef4444 !important;
+            /* Red color for Rejected */
+            color: white;
+        }
+
+        td[data-column='Application Status'] select option[data-status='Proceed Further'] {
+            background-color: #f59e0b !important;
+            /* Amber color for Proceed Further */
+            color: white;
+        }
+
+        .table td {
+            vertical-align: middle;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            color: #334155;
+            border-bottom: 1px solid #f1f5f9;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .table td[data-column='Application Status'] {
+            min-width: 200px;
+        }
+
+        .table td[data-column='Reject Mail Sent'] {
+            min-width: 150px;
+        }
+
+        /* Badge Styling */
+        .badge {
+            padding: 0.375rem 0.875rem;
+            font-weight: 600;
+            font-size: 0.7rem;
+            border-radius: 12px;
+            text-transform: capitalize;
+            letter-spacing: 0.3px;
+        }
+
+        /* Status Badge Colors */
+        .bg-success {
+            background: #d4f4dd !important;
+            color: #0f5132 !important;
+        }
+
+        .badge.bg-success {
+            background: #d4f4dd !important;
+            color: #0f5132 !important;
+        }
+
+        .bg-info {
+            background: #d3e4fd !important;
+            color: #084298 !important;
+        }
+
+        .badge.bg-info {
+            background: #d3e4fd !important;
+            color: #084298 !important;
+        }
+
+        .bg-warning {
+            background: #fff3cd !important;
+            color: #997404 !important;
+        }
+
+        .badge.bg-warning {
+            background: #fff3cd !important;
+            color: #997404 !important;
+        }
+
+        .bg-danger {
+            background: #f8d7da !important;
+            color: #842029 !important;
+        }
+
+        .badge.bg-danger {
+            background: #f8d7da !important;
+            color: #842029 !important;
+        }
+
+        .bg-secondary {
+            background: #e2e3e5 !important;
+            color: #41464b !important;
+        }
+
+        .badge.bg-secondary {
+            background: #e2e3e5 !important;
+            color: #41464b !important;
+        }
+
+        /* Modal Styling */
+        .modal-content {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border-radius: 16px 16px 0 0;
+            padding: 1.5rem;
+            border: none;
+        }
+
+        /* Candidate Detail Modal Styling */
+        .candidate-detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .candidate-detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .candidate-detail-label {
+            font-weight: 600;
+            color: #475569;
+            min-width: 150px;
+            margin-right: 1rem;
+        }
+
+        .candidate-detail-value {
+            flex: 1;
+            text-align: right;
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        .dark-text-in-brackets {
+            color: #00008B;
+        }
+
+
+
+        .candidate-detail-value .badge {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
+        }
+
+        #candidateDetailContent {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .candidate-detail-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .candidate-detail-section h6 {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .modal-title {
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .modal-body {
+            padding: 2rem;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            border-top: 1px solid #e2e8f0;
+            padding: 1.25rem 2rem;
+        }
+
+        /* Form Styling */
+        .form-label {
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control,
+        .form-select {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0.625rem 0.875rem;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        textarea.form-control {
+            resize: vertical;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+            padding: 1rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #64748b;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: #cbd5e1;
+            margin-bottom: 1rem;
+        }
+
+        /* Toast Container */
+        .toast-container {
+            z-index: 9999;
+        }
+
+        .toast {
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Loading State */
+        .loading-spinner {
+            display: inline-block;
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spinner 0.8s linear infinite;
+        }
+
+        @keyframes spinner {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .card-header h5 {
+                font-size: 1rem;
+            }
+
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+
+            .chart-container {
+                height: 250px;
+            }
+
+            .modal-body {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Custom Scrollbar */
+        .table-responsive::-webkit-scrollbar,
+        .modal-body::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .table-responsive::-webkit-scrollbar-track,
+        .modal-body::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .table-responsive::-webkit-scrollbar-thumb,
+        .modal-body::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .table-responsive::-webkit-scrollbar-thumb:hover,
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Summary Card Styling */
+        .list-group-item {
+            border: none;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 1rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .list-group-item:hover {
+            background-color: #f8fafc;
+        }
+
+        .list-group-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Action Buttons */
+        .btn-group .btn {
+            margin-right: 0.25rem;
+        }
+
+        .btn i {
+            margin-right: 0.25rem;
+        }
+
+        /* Required Field Indicator */
+        .text-danger {
+            color: var(--danger-color) !important;
+        }
+
+        /* Link Styling */
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--secondary-color);
+            text-decoration: underline;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Alert Styling */
+        .alert {
+            border: none;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+        }
+
+        .alert-info {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* Spreadsheet-style Metrics Panel */
+        #metricsPanel {
+            font-size: 0.875rem;
+        }
+
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .metrics-table th {
+            background-color: #cfe2ff;
+            color: #000;
+            font-weight: 600;
+            padding: 0.5rem;
+            text-align: left;
+            border: 1px solid #dee2e6;
+            font-size: 0.875rem;
+        }
+
+        .metrics-table td {
+            padding: 0.5rem;
+            border: 1px solid #dee2e6;
+            font-size: 0.875rem;
+        }
+
+        .metric-row-metrics {
+            background-color: #f8d7da !important;
+        }
+
+
+        .metric-row-hr {
+            background-color: #fff3cd !important;
+        }
+
+        .metric-label {
+            font-weight: 500;
+        }
+
+        .metric-value {
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .metrics-section-header {
+            font-weight: 700;
+            padding: 0.5rem;
+            background-color: #f1f5f9;
+            border: 1px solid #dee2e6;
+            margin-top: 0.5rem;
+            margin-bottom: 0;
+        }
+
+        .metrics-section-header:first-child {
+            margin-top: 0;
+        }
+
+        .no-row-margin {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+
+        .no-col-padding {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .full-width-container {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const groupBySelect = document.getElementById('groupByColumn');
+            if (groupBySelect) {
+                console.log('groupByColumn innerHTML:', groupBySelect.innerHTML);
+            }
+        });
+    </script>
+    <nav class="navbar navbar-expand-lg navbar-dark" style="padding: 0.3rem 1rem;">
+        <div class="container-fluid full-width-container">
+            <div class="d-flex align-items-center">
+                <img src="/static/images/GuhaTekHorizontalLarge.svg" alt="GuhaTek Logo"
+                    style="height: 30px; margin-right: 1rem;">
+            </div>
+            <div class="d-flex align-items-center ms-3">
+                <span class="navbar-brand mb-0">Candidate Tracking System</span>
+            </div>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" data-bs-target="#dataTab">
+                            <i class="bi bi-database"></i>
+                            Data Management
+                        </a>
+                    </li>
+                    {% if is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/resume-matcher">
+                            <i class="bi bi-file-earmark-text"></i>
+                            Resume Filter
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-target="#analysisTab">
+                            <i class="bi bi-bar-chart-line"></i>
+                            Analytics
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if is_admin %}
+                    <li class="nav-item" id="userManagementNav">
+                        <a class="nav-link" href="/users">
+                            <i class="bi bi-people"></i>
+                            User Management
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="tab-content">
+            <!-- Data Management Tab -->
+            <div class="tab-pane fade show active" id="dataTab">
+                <div class="row mb-4 no-row-margin">
+                    <div class="col-md-12 no-col-padding">
+                        <div class="card shadow-sm">
+                            <div class="card-header" style="padding: 0.5rem 1rem;">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                                    <h4 class="mb-0 d-flex align-items-center">
+                                        <i class="bi bi-clipboard-data me-2"></i>
+                                        Candidate Management
+                                    </h4>
+                                    <button id="toggleFiltersBtn" class="btn btn-primary ms-auto">
+                                        <i class="bi bi-funnel-fill me-2"></i>Toggle Filters
+                                    </button>
+                                    <button id="addCandidateBtn" class="btn btn-primary" onclick="openAddModal()"
+                                        style="display: none;">
+                                        <i class="bi bi-plus-circle-fill me-2"></i>Add New Candidate
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body"
+                                style="background: #dfe3f4; padding: 0.75rem 1.5rem; margin-bottom: 0;">
+                                <div class="row g-2" id="filterContainer" style="display: none;">
+                                    <div class="col-md-2 filter-item">
+                                        <label for="positionFilter"
+                                            class="form-label fw-semibold text-dark mb-2">Position</label>
+                                        <select id="positionFilter" class="form-select"
+                                            style="border-radius: 8px; border: 1px solid #cbd5e1; min-width: 320px;">
+                                            <option value="">All Positions</option>
+                                            <option value="Site Reliability Engineer">Site Reliability Engineer</option>
+                                            <option value="Senior Site Reliability Engineer">Senior Site Reliability
+                                                Engineer</option>
+                                            <option value="Lead Site Reliability Engineer">Lead Site Reliability
+                                                Engineer</option>
+                                            <option value="Application Site Reliability Engineer">Application Site
+                                                Reliability Engineer</option>
+                                            <option value="Security Operations Centre Engineer">Security Operations
+                                                Centre Engineer</option>
+                                            <option value="Performance Engineer">Performance Engineer</option>
+                                            <option value="QA Automation Engineer (Playwright & Selenium)">QA Automation
+                                                Engineer (Playwright & Selenium)</option>
+                                            <option value="DevOps Engineer">DevOps Engineer</option>
+                                            <option value="Lead SAP Engineer">Lead SAP Engineer</option>
+                                            <option value="AI/ML Engineer">AI/ML Engineer</option>
+                                            <option value="AI/ML Intern">AI/ML Intern</option>
+                                            <option value="Internship">Internship</option>
+                                            <option value="Fresher">Fresher</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 filter-item">
+                                        <label for="locationFilter"
+                                            class="form-label fw-semibold text-dark mb-2">Location</label>
+                                        <select id="locationFilter" class="form-select"
+                                            style="border-radius: 8px; border: 1px solid #cbd5e1; min-width: 180px;">
+                                            <option value="">All Locations</option>
+                                            <option value="Bangalore">Bangalore</option>
+                                            <option value="Chennai">Chennai</option>
+                                            <option value="Coimbatore">Coimbatore</option>
+                                            <option value="Others">Others</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 filter-item">
+                                        <label for="experienceFilter"
+                                            class="form-label fw-semibold text-dark mb-2">Years of Experience</label>
+                                        <select id="experienceFilter" class="form-select"
+                                            style="border-radius: 8px; border: 1px solid #cbd5e1;">
+                                            <option value="">Any Experience</option>
+                                            <option value="0-1">0-1 Year</option>
+                                            <option value="1-3">1-3 Years</option>
+                                            <option value="3-5">3-5 Years</option>
+                                            <option value="5-8">5-8 Years</option>
+                                            <option value="8-10">8-10 Years</option>
+                                            <option value="10+">10+ Years</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 filter-item">
+                                        <label for="noticePeriodFilter"
+                                            class="form-label fw-semibold text-dark mb-2">Notice Period</label>
+                                        <select id="noticePeriodFilter" class="form-select"
+                                            style="border-radius: 8px; border: 1px solid #cbd5e1; min-width: 180px;">
+                                            <option value="">Any Notice Period</option>
+                                            <option value="immediate">Immediate</option>
+                                            <option value="15days">15 Days</option>
+                                            <option value="30days">30 Days</option>
+                                            <option value="45days">45 Days</option>
+                                            <option value="60days">60 Days</option>
+                                            <option value="90days">90 Days</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 filter-item">
+                                        <label for="statusFilter"
+                                            class="form-label fw-semibold text-dark mb-2">Application Status</label>
+                                        <select id="statusFilter" class="form-select"
+                                            style="border-radius: 8px; border: 1px solid #cbd5e1; min-width: 200px;">
+                                            <option value="">Pending</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body p-0" style="padding-top: 0.25cm !important;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0" id="dataTable">
+                                        <thead id="dataTableHead">
+                                            <!-- Headers will be dynamically populated -->
+                                        </thead>
+                                        <tbody id="dataTableBody">
+                                            <!-- Data will be dynamically populated -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Offer Details Table -->
+
+                </div>
+            </div>
+
+            <!-- Analysis Tab -->
+            <div class="tab-pane fade" id="analysisTab">
+                <!-- View Switcher -->
+                <div class="row mb-3">
+                    <div class="col-md-12 d-flex justify-content-end align-items-center">
+                        <label for="viewType" class="me-2 fw-bold text-white">View :</label>
+                        <select id="viewType" class="form-select" style="width: 200px;">
+                            <option value="numeric">Numeric</option>
+                            <option value="chart">Chart</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <!-- Left Panel - Metrics -->
+                    <div class="col-md-3 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body p-2">
+                                <div id="metricsPanel" class="numeric-view">
+                                    <!-- Metrics will be populated here -->
+                                </div>
+                                <div id="metricsChartContainer" class="chart-view"
+                                    style="display: none; height: 400px;">
+                                    <canvas id="metricsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Center Panel - Monthly Statistics Table -->
+                    <div class="col-md-9 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">
+                                        <i class="bi bi-calendar3 me-2"></i>
+                                        Monthly Statistics
+                                    </h5>
+                                    <select id="yearFilter" class="form-select form-select-sm" style="width: 120px;">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="card-body p-1">
+                                <div class="table-responsive" style="max-height: 600px;">
+                                    <table class="table table-bordered table-sm mb-0 numeric-view"
+                                        id="monthlyStatsTable" style="font-size: 0.875rem;">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="text-center py-1">Month</th>
+                                                <th class="text-center py-1">Applicants</th>
+                                                <th class="text-center py-1">Accepted</th>
+                                                <th class="text-center py-1">Rejected</th>
+                                                <th class="text-center py-1">In Notice</th>
+                                                <th class="text-center py-1">Joined</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="monthlyStatsBody" style="font-size: 0.8125rem;">
+                                            <!-- Monthly data will be populated here -->
+                                        </tbody>
+                                        <tfoot id="monthlyStatsTotals" class="table-success">
+                                            <!-- Totals will be populated here -->
+                                        </tfoot>
+                                    </table>
+                                </div>
+
+                                <!-- Chart View for Monthly Statistics -->
+                                <div class="chart-view" style="display: none; height: 400px;">
+                                    <canvas id="monthlyStatsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Offer Details Table -->
+
+                </div>
+
+                <!-- ============================================= -->
+                <!-- POSITION STATISTICS TABLE                     -->
+                <!-- ============================================= -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card shadow-sm"
+                            style="border: 5px solid #b4cbd8; box-shadow: 0 4px 12px rgba(216, 180, 216, 0.5);">
+                            <div class="card-header position-stats-header"
+                                style="background: linear-gradient(to right, #d8b4d8 0%, #c9a0c9 100%);">
+                                <h5 class="mb-0 text-center" style="color: white; font-weight: 700; font-size: 1.3rem;">
+
+                                    POSITION STATISTICS
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover mb-0 numeric-view">
+                                        <thead style="background-color: #d8b4d8;">
+                                            <tr>
+                                                <th
+                                                    style="width: 60%; color: #212529; font-weight: bold; text-align: center; font-size: 1.1rem;">
+                                                    Position</th>
+                                                <th
+                                                    style="width: 20%; color: #212529; font-weight: bold; text-align: center; font-size: 1.1rem;">
+                                                    Applied</th>
+                                                <th
+                                                    style="width: 20%; color: #212529; font-weight: bold; text-align: center; font-size: 1.1rem;">
+                                                    Joined</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="positionStatsBody">
+                                            <tr style="background-color: #fff3cd;">
+                                                <td colspan="3" class="text-center py-1"
+                                                    style="font-weight: bold; color: #856404;">⏳ Loading
+                                                    position data...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div id="positionStatsChartContainer" class="chart-view"
+                                        style="display: none; height: 400px;">
+                                        <canvas id="positionStatsChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Offer Details Table -->
+
+                </div>
+                <!-- ============================================= -->
+
+                <!-- Charts Row -->
+                <div class="row">
+                    <!-- Offer Details Table -->
+                    <div class="col-md-12 mb-4">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-table me-2"></i>
+                                    Offer Details
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Name</th>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Interested Position</th>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Offered Position</th>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem; width: 200px;">Offered CTC</th>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Joining Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="offerDetailsBodyIndex">
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">Loading offer details...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Application Status Chart -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-pie-chart-fill me-2"></i>
+                                    Application Status
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="applicationStatusNumeric" class="numeric-view">
+                                    <!-- Numeric data will be populated here -->
+                                </div>
+                                <div class="chart-container chart-view" style="display: none; height: 400px;">
+                                    <canvas id="applicationStatusChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Position-wise Analytics -->
+                <div class="row">
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Data Modal -->
+        <div class="modal fade" id="addDataModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addDataModalLabel">
+                            <i class="bi bi-person-plus-fill me-2"></i>
+                            Add New Candidate
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="addDataForm">
+                            <div id="addFormBody"></div>
+                            <!-- Form fields will be dynamically populated -->
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary" id="saveDataBtn">
+                            <i class="bi bi-save me-1"></i>
+                            Add Candidate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Round 1 Remarks Modal -->
+        <div class="modal fade" id="round1RemarksModal" tabindex="-1" aria-labelledby="round1RemarksModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="round1RemarksModalLabel">
+                            <i class="bi bi-chat-left-text-fill me-2"></i>
+                            Round 1 Feedback
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="round1RemarksForm">
+                            <div class="mb-3">
+                                <label for="r1Communication" class="form-label">Communication:</label>
+                                <textarea class="form-control" id="r1Communication" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="r1TechnicalAssessment" class="form-label">Technical Assessment:</label>
+                                <textarea class="form-control" id="r1TechnicalAssessment" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="r1ProblemSolving" class="form-label">Problem-Solving:</label>
+                                <textarea class="form-control" id="r1ProblemSolving" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="r1OverallPotential" class="form-label">Overall Potential:</label>
+                                <textarea class="form-control" id="r1OverallPotential" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="r1Recommendation" class="form-label">Recommendation:</label>
+                                <select class="form-select" id="r1Recommendation">
+                                    <option value="">Select Recommendation</option>
+                                    <option value="Proceed Round 2">Proceed Round 2</option>
+                                    <option value="Not Recommended">Not Recommended</option>
+                                    <option value="On-Hold">On-Hold</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="saveRound1Remarks">Save Remarks</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Round 2 Remarks Modal -->
+        <div class="modal fade" id="round2RemarksModal" tabindex="-1" aria-labelledby="round2RemarksModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="round2RemarksModalLabel">
+                            <i class="bi bi-chat-left-text-fill me-2"></i>
+                            Round 2 Feedback
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="round2RemarksForm">
+                            <div class="mb-3">
+                                <label for="r2Communication" class="form-label">Communication:</label>
+                                <textarea class="form-control" id="r2Communication" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="r2TechnicalAssessment" class="form-label">Technical Assessment:</label>
+                                <textarea class="form-control" id="r2TechnicalAssessment" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="r2ProblemSolving" class="form-label">Problem-Solving:</label>
+                                <textarea class="form-control" id="r2ProblemSolving" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="r2OverallPotential" class="form-label">Overall Potential:</label>
+                                <textarea class="form-control" id="r2OverallPotential" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="r2Recommendation" class="form-label">Recommendation:</label>
+                                <textarea class="form-control" id="r2Recommendation" rows="3"></textarea>
+                                <div class="mb-3" id="r2RawRemarksContainer" style="display:none;">
+                                    <label for="r2RawRemarks" class="form-label">Raw Remarks (Non-JSON)</label>
+                                    <textarea class="form-control" id="r2RawRemarks" rows="3" readonly></textarea>
+                                </div>
+                                <div class="mb-3" id="r1RawRemarksContainer" style="display:none;">
+                                    <label for="r1RawRemarks" class="form-label">Raw Remarks (Non-JSON)</label>
+                                    <textarea class="form-control" id="r1RawRemarks" rows="3" readonly></textarea>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="r2CTC" class="form-label">CTC:</label>
+                                <input type="text" class="form-control" id="r2CTC">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="saveRound2Remarks">Save Remarks</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Offer Details Modal -->
+        <div class="modal fade" id="offerDetailsModal" tabindex="-1" aria-labelledby="offerDetailsModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="offerDetailsModalLabel">
+                            <i class="bi bi-currency-dollar me-2"></i>
+                            Offer Details
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="offerDetailsForm">
+                            <div class="mb-3">
+                                <label for="offerCandidateName" class="form-label">Candidate Name:</label>
+                                <input type="text" class="form-control" id="offerCandidateName" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label for="offerInterestedPosition" class="form-label">Interested Position:</label>
+                                <input type="text" class="form-control" id="offerInterestedPosition" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label for="offeredPosition" class="form-label">Offered Position:</label>
+                                <input type="text" class="form-control" id="offeredPosition">
+                            </div>
+                            <div class="mb-3">
+                                <label for="offeredCTC" class="form-label">Offered CTC:</label>
+                                <input type="text" class="form-control" id="offeredCTC">
+                            </div>
+                            <div class="mb-3">
+                                <label for="joiningDate" class="form-label">Joining Date:</label>
+                                <input type="text" class="form-control" id="joiningDate">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="saveOfferDetails">Save Offer Details</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Data Modal -->
+        <div class="modal fade" id="editDataModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="remarksDetailModalLabel">
+                            <i class="bi bi-pencil-square me-2"></i>
+                            Edit Candidate
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editDataForm">
+                            <input type="hidden" id="editRecordIndex">
+                            <div id="editFormBody"></div>
+                            <!-- Form fields will be dynamically populated -->
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary" id="updateDataBtn">
+                            <i class="bi bi-save me-1"></i>
+                            Update Candidate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Candidate Detail Modal -->
+        <div class="modal fade" id="candidateDetailModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="remarksDetailModalLabel">
+                            <i class="bi bi-person-lines-fill me-2"></i>
+                            Candidate Details
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="candidateDetailContent">
+                            <!-- Candidate details will be populated here -->
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" id="editRemarksBtn">
+                            <i class="bi bi-pencil-square me-1"></i>
+                            Edit
+                        </button>
+                        <button type="button" class="btn btn-success" id="saveRemarksBtn" style="display: none;">
+                            <i class="bi bi-save me-1"></i>
+                            Save
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Final Remarks Modal -->
+        <div class="modal fade" id="finalRemarksModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="finalRemarksModalLabel">
+                            <i class="bi bi-chat-left-text me-2"></i>
+                            Final Remarks
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="finalRemarksTextArea" class="form-label">Final Remarks:</label>
+                            <textarea class="form-control" id="finalRemarksTextArea" rows="5"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" id="saveFinalRemarks">
+                            <i class="bi bi-save me-1"></i>
+                            Save
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Initial Screening Modal -->
+        <div class="modal fade" id="initialScreeningModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="initialScreeningModalLabel">
+                            <i class="bi bi-chat-left-text me-2"></i>
+                            Initial Screening
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="initialScreeningTextArea" class="form-label">Initial Screening Comments:</label>
+                            <textarea class="form-control" id="initialScreeningTextArea" rows="5"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" id="saveInitialScreening">
+                            <i class="bi bi-save me-1"></i>
+                            Save
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Round 1 D&T Detail Modal -->
+        <div class="modal fade" id="round1DAndTDetailModal" tabindex="-1" aria-labelledby="round1DAndTDetailModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable" style="max-width: 300px; width: 90%;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="round1DAndTDetailModalLabel">
+                            <i class="bi bi-journal-text me-2"></i>
+                            Round 1 D&T Details
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="round1DAndTDetailContent">
+                        <!-- Content will be dynamically loaded here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="saveRound1DAndTInModal">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Round 2 D&T Detail Modal -->
+        <div class="modal fade" id="round2DAndTDetailModal" tabindex="-1" aria-labelledby="round2DAndTDetailModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable" style="max-width: 300px; width: 90%;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="round2DAndTDetailModalLabel">
+                            <i class="bi bi-journal-text me-2"></i>
+                            Round 2 D&T Details
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="round2DAndTDetailContent">
+                        <!-- Content will be dynamically loaded here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="saveRound2DAndTInModal">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Remarks Detail Modal -->
+        <div class="modal fade" id="remarksDetailModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="remarksDetailModalLabel">
+                            <i class="bi bi-chat-left-text me-2"></i>
+                            Candidate Remarks
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="remarksDetailContent">
+                            <!-- Remarks will be populated here -->
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" id="saveRemarksInModal">
+                            <i class="bi bi-save me-1"></i>
+                            Save
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Force refresh styles on page load -->
+        <script>
+            // Force style refresh to overcome caching issues
+            document.addEventListener('DOMContentLoaded', function () {
+                // Add a small delay to ensure DOM is fully loaded
+                setTimeout(function () {
+                    // Force reflow
+                    document.body.style.display = 'none';
+                    document.body.offsetHeight; // Trigger reflow
+                    document.body.style.display = 'block';
+                }, 100);
+            });
+
+            // Function to populate year dropdown
+            
+
+            // Initialize year dropdown when DOM is loaded
+            document.addEventListener('DOMContentLoaded', function () {
+                console.log('DOM loaded');
+                populateYearFilter();
+            });
+        </script>
+        <script src="/static/js/app.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</body>
+
+</html>

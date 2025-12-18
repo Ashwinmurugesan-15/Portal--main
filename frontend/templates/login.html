@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Candidate Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: #0e2851;
+            background-attachment: fixed;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: moveBackground 20s linear infinite;
+        }
+
+        @keyframes moveBackground {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(50px, 50px);
+            }
+        }
+
+        .login-container {
+            max-width: 450px;
+            padding: 3rem 2.5rem;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin: 0 auto;
+            position: relative;
+            z-index: 10;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h2 {
+            font-weight: 800;
+            margin-bottom: 8px;
+            font-size: 2.5rem;
+            letter-spacing: -1px;
+            color: #355d86; /* Blue color for Admin Login */
+        }
+
+        .login-subtitle {
+            color: #355d86; /* Blue color for Candidate Management System */
+            font-size: 1rem;
+            margin-top: -5px;
+        }
+
+        .form-control {
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            /* Lighter border with primary color */
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            background-color: rgba(255, 255, 255, 0.8);
+            /* Slightly transparent white background */
+            color: #343a40;
+            /* Dark text color */
+        }
+
+        .form-control:focus {
+            border-color: #007bff;
+            /* Bootstrap primary blue */
+            box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+            /* Bootstrap focus shadow */
+            outline: none;
+            background-color: #fff;
+            color: #343a40;
+        }
+
+        .btn-login {
+            padding: 14px;
+            background: #09141f; /* Blue color for Sign In button */
+            border: none;
+            border-radius: 12px;
+            width: 100%;
+            font-weight: 700;
+            margin-top: 12px;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(35, 57, 80, 0.4);
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(35, 45, 56, 0.6);
+            background: #2d3f52; /* Darker blue on hover */
+        }
+
+        .alert {
+            margin-bottom: 20px;
+        }
+
+        .forgot-link {
+            text-align: right;
+            margin-top: 10px;
+        }
+
+        .input-group-text {
+            background-color: rgba(0, 123, 255, 0.1);
+            /* Light primary background */
+            border-radius: 0 12px 12px 0;
+            cursor: pointer;
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            /* Primary colored border */
+            border-left: none;
+            transition: all 0.3s ease;
+            color: #007bff;
+            /* Primary text color */
+        }
+
+        .input-group-text:hover {
+            background-color: #263a4f;
+            /* Bootstrap primary blue */
+            color: white;
+            border-color: #007bff;
+        }
+
+        .login-logo-white {
+            filter: brightness(0) invert(1);
+        }
+    </style>
+</head>
+
+<body>
+    <div style="position: absolute; top: 20px; left: 30px; z-index: 1000;">
+        <img src="/static/images/GuhaTekHorizontalLarge.svg" alt="GuhaTek Logo" class="login-logo-white" style="height: 40px;">
+    </div>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card login-container">
+                    <div class="login-header text-center">
+                        <h2>Admin Login</h2>
+                        <p class="login-subtitle">Candidate Management System</p>
+                    </div>
+
+                    {% if error %}
+                    <div class="alert alert-danger" role="alert">
+                        {{ error }}
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" action="/login">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username"
+                                placeholder="Enter admin or user username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="password" name="password"
+                                    placeholder="Enter password" required>
+                                <span class="input-group-text" id="togglePassword"
+                                    aria-label="Toggle password visibility">
+                                    <i class="bi bi-eye-slash" id="togglePasswordIcon"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Sign In</button>
+                        <div class="forgot-link">
+                            <a href="#">Forgot Password?</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Toggle password visibility
+        (function () {
+            const pwd = document.getElementById('password');
+            const toggle = document.getElementById('togglePassword');
+            const icon = document.getElementById('togglePasswordIcon');
+            if (pwd && toggle && icon) {
+                toggle.addEventListener('click', function () {
+                    const type = pwd.getAttribute('type') === 'password' ? 'text' : 'password';
+                    pwd.setAttribute('type', type);
+                    icon.classList.toggle('bi-eye');
+                    icon.classList.toggle('bi-eye-slash');
+                });
+            }
+        })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+
+</html>
