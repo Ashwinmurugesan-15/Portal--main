@@ -27,14 +27,26 @@ if env == "production":
 else:
     app_config = DevelopmentConfig()
 
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-frontend_dir = os.path.join(base_dir, 'frontend')
-templates_dir = os.path.join(frontend_dir, 'templates')
-static_dir = os.path.join(frontend_dir, 'static')
+base_dir = os.path.dirname(os.path.abspath(__file__))
+templates_dir = os.path.join(base_dir, "templates")
+static_dir = os.path.join(base_dir, "static")
 
 app = Flask(__name__, static_folder=static_dir, template_folder=templates_dir)
 app.config.from_object(app_config)
-app.secret_key = app.config["SECRET_KEY"]
+app.secret_key = app.config.get("SECRET_KEY") or None
+
+if not app.secret_key:
+    if env == "production":
+        raise RuntimeError("SECRET_KEY must be set in production")
+    dev_secret = os.getenv("DEV_SECRET_KEY")
+    if dev_secret:
+        app.secret_key = dev_secret
+    else:
+        generated_secret = secrets.token_hex(32)
+        app.secret_key = generated_secret
+        app.config["SECRET_KEY"] = generated_secret
+
+logger.info("Flask SECRET_KEY configured for env '%s': %s", env, "set" if app.secret_key else "missing")
 api_allowed_origins = app.config.get("API_ALLOWED_ORIGINS", "*")
 if api_allowed_origins and api_allowed_origins != "*":
     origins_list = [o.strip() for o in str(api_allowed_origins).split(",") if o.strip()]
@@ -324,7 +336,7 @@ def save_data(data):
 # Initialize user database
 def init_user_db():
     """Initialize the user database with admin user"""
-    os.makedirs('instance', exist_ok=True)
+    os.makedirs(os.path.dirname(USER_DB), exist_ok=True)
     conn = sqlite3.connect(USER_DB)
     cursor = conn.cursor()
     
@@ -502,13 +514,7 @@ def index():
 @app.route('/resume-matcher')
 @login_required
 def resume_matcher_frontend():
-    frontend_dir = os.path.join(app.root_path, '..', 'frontend', 'front_end')
-    return send_from_directory(frontend_dir, 'index.html')
-
-@app.route('/front_end/<path:filename>')
-def front_end_static(filename):
-    frontend_dir = os.path.join(app.root_path, '..', 'frontend', 'front_end')
-    return send_from_directory(frontend_dir, filename)
+    return render_template('resumeindex.html', is_admin=session.get('is_admin', False))
 
 @app.route('/api/data', methods=['GET'])
 @login_required

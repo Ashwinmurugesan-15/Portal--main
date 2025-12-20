@@ -63,7 +63,7 @@ You can also override Excel and database paths if needed:
 - `DEV_USER_DB`
 - `DEV_DATABASE`
 
-If you do not set these, defaults from `backend/config.py` are used.
+If you do not set these, defaults from `config.py` are used.
 
 ### 2. Start the main backend (port 5000)
 
@@ -79,7 +79,7 @@ $env:ADMIN_PASSWORD = "your-admin-password"
 $env:DEV_API_BASE_URL = ""
 $env:DEV_RESUME_API_BASE_URL = "http://localhost:5001"
 
-python backend\app.py
+python app.py
 ```
 
 This will:
@@ -102,7 +102,7 @@ $env:DEV_PORT = "5001"
 $env:DEV_API_BASE_URL = ""
 $env:DEV_RESUME_API_BASE_URL = "http://localhost:5001"
 
-python backend\resume-matcher-backend\resume_matcher_api.py
+python backend\resume_matcher_api.py
 ```
 
 This will start the resume matcher Flask app on `http://127.0.0.1:5001`.
@@ -141,15 +141,15 @@ Optional overrides:
 
 Then run the WSGI application with a production server (for example, gunicorn, waitress, or any other WSGI-capable server) pointing at:
 
-- Main app: `backend.app:app`
-- Resume matcher backend: `backend.resume-matcher-backend.resume_matcher_api:app`
+- Main app: `app:app`
+- Resume matcher backend: `backend.resume_matcher_api:app`
 
 ## Project Structure (simplified)
 
-- `backend/app.py`: Main Flask backend (candidate management, analytics, authentication, HTML rendering)
-- `backend/config.py`: Central configuration (env-based) for paths, API URLs, email, and auth
-- `backend/resume-matcher-backend/resume_matcher_api.py`: Resume matcher backend
-- `frontend/templates/*.html`: HTML templates for main app, analytics, users
-- `frontend/static/js/app.js`: Main frontend logic for candidate management and analytics
-- `frontend/front_end/index.html`: Resume matcher frontend
-- `frontend/front_end/app.js`: Resume matcher frontend logic
+- `app.py`: Main Flask backend (candidate management, analytics, authentication, HTML rendering)
+- `config.py`: Central configuration (env-based) for paths, API URLs, email, and auth
+- `backend/resume_matcher_api.py`: Resume matcher backend
+- `templates/*.html`: HTML templates for main app, analytics, users
+- `static/js/app.js`: Main frontend logic for candidate management and analytics
+- `static/js/resumeapp.js`: Resume matcher frontend logic (renamed from app.js)
+- `templates/resumeindex.html`: Resume matcher frontend (renamed from index.html)

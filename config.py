@@ -4,10 +4,10 @@ import os
 class BaseConfig:
     APP_ENV = os.getenv("APP_ENV", "development")
     SECRET_KEY = os.getenv("SECRET_KEY", "")
-    EXCEL_FILE = os.getenv("EXCEL_FILE", "data.xlsx")
+    EXCEL_FILE = os.getenv("EXCEL_FILE", os.path.join("uploads", "data.xlsx"))
     SHEET_NAME = os.getenv("SHEET_NAME", "Candidates")
-    USER_DB = os.getenv("USER_DB", os.path.join("instance", "users.db"))
-    DATABASE = os.getenv("DATABASE", os.path.join("instance", "candidates.db"))
+    USER_DB = os.getenv("USER_DB", os.path.join("database", "users.db"))
+    DATABASE = os.getenv("DATABASE", os.path.join("database", "candidates.db"))
     EMAIL_CONFIG = {
         "SMTP_SERVER": os.getenv("SMTP_SERVER", "smtp.gmail.com"),
         "SMTP_PORT": int(os.getenv("SMTP_PORT", "587")),
