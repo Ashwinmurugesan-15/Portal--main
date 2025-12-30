@@ -70,8 +70,9 @@
         <div class="container">
             <h1 class="header">Resume Matcher</h1>
 
-            <label for="jobDescription">Job Description</label>
-            <textarea id="jobDescription" placeholder="Enter job description here">
+            <div class="input-section">
+                <label for="jobDescription">Job Description:</label>
+                <textarea id="jobDescription" placeholder="Enter job description here" maxlength="120">
 Technical Skills
 CloudPlatforms: AWS(IAM,S3,EC2,VPC,CloudWatch,Lambda,SNS,EBS,EFS,EventNotifications)
 DevOpsTools: Terraform,Jenkins,Ansible,Git,GitHub,Docker,Kubernetes,VisualStudio
@@ -79,7 +80,8 @@ Languages: C,Python(Basic)
 OperatingSystems: Linux(Basiccommands)
 Protocols: I2C,UART,SPI,USART
 LanguagesKnown: English,Tamil,Telugu
-            </textarea>
+                </textarea>
+            </div>
 
             <label for="resumeFiles">Upload Resume Files (PDF)</label>
             <input type="file" id="resumeFiles" multiple accept=".pdf">

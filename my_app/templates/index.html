@@ -1041,6 +1041,19 @@
                                     </table>
                                 </div>
                             </div>
+                            <div class="card-footer bg-white border-top py-3">
+                                <!-- Pagination Controls -->
+                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+                                    <div id="paginationInfo" class="text-muted small fw-medium order-2 order-md-1">
+                                        Showing 0 to 0 of 0 entries
+                                    </div>
+                                    <nav aria-label="Page navigation" class="order-1 order-md-2">
+                                        <ul class="pagination pagination-sm mb-0 justify-content-center" id="paginationControls">
+                                            <!-- Pagination buttons will be dynamically populated -->
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1209,6 +1222,17 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                <!-- Pagination Controls -->
+                                <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
+                                    <div id="paginationInfo" class="text-muted small">
+                                        Showing 0 to 0 of 0 entries
+                                    </div>
+                                    <nav aria-label="Page navigation">
+                                        <ul class="pagination pagination-sm mb-0" id="paginationControls">
+                                            <!-- Pagination buttons will be dynamically populated -->
+                                        </ul>
+                                    </nav>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1289,19 +1313,19 @@
                         <form id="round1RemarksForm">
                             <div class="mb-3">
                                 <label for="r1Communication" class="form-label">Communication:</label>
-                                <textarea class="form-control" id="r1Communication" rows="3"></textarea>
+                                <textarea class="form-control" id="r1Communication" rows="3" maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r1TechnicalAssessment" class="form-label">Technical Assessment:</label>
-                                <textarea class="form-control" id="r1TechnicalAssessment" rows="3"></textarea>
+                                <textarea class="form-control" id="r1TechnicalAssessment" rows="3" maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r1ProblemSolving" class="form-label">Problem-Solving:</label>
-                                <textarea class="form-control" id="r1ProblemSolving" rows="3"></textarea>
+                                <textarea class="form-control" id="r1ProblemSolving" rows="3" maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r1OverallPotential" class="form-label">Overall Potential:</label>
-                                <textarea class="form-control" id="r1OverallPotential" rows="3"></textarea>
+                                <textarea class="form-control" id="r1OverallPotential" rows="3" maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r1Recommendation" class="form-label">Recommendation:</label>
@@ -1339,35 +1363,35 @@
                         <form id="round2RemarksForm">
                             <div class="mb-3">
                                 <label for="r2Communication" class="form-label">Communication:</label>
-                                <textarea class="form-control" id="r2Communication" rows="3"></textarea>
+                                <textarea class="form-control" id="r2Communication" rows="3" maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r2TechnicalAssessment" class="form-label">Technical Assessment:</label>
-                                <textarea class="form-control" id="r2TechnicalAssessment" rows="3"></textarea>
+                                <textarea class="form-control" id="r2TechnicalAssessment" rows="3" maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r2ProblemSolving" class="form-label">Problem-Solving:</label>
-                                <textarea class="form-control" id="r2ProblemSolving" rows="3"></textarea>
+                                <textarea class="form-control" id="r2ProblemSolving" rows="3" maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r2OverallPotential" class="form-label">Overall Potential:</label>
-                                <textarea class="form-control" id="r2OverallPotential" rows="3"></textarea>
+                                <textarea class="form-control" id="r2OverallPotential" rows="3" maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r2Recommendation" class="form-label">Recommendation:</label>
-                                <textarea class="form-control" id="r2Recommendation" rows="3"></textarea>
+                                <textarea class="form-control" id="r2Recommendation" rows="3" maxlength="120"></textarea>
                                 <div class="mb-3" id="r2RawRemarksContainer" style="display:none;">
                                     <label for="r2RawRemarks" class="form-label">Raw Remarks (Non-JSON)</label>
-                                    <textarea class="form-control" id="r2RawRemarks" rows="3" readonly></textarea>
+                                    <textarea class="form-control" id="r2RawRemarks" rows="3" readonly maxlength="120"></textarea>
                                 </div>
                                 <div class="mb-3" id="r1RawRemarksContainer" style="display:none;">
                                     <label for="r1RawRemarks" class="form-label">Raw Remarks (Non-JSON)</label>
-                                    <textarea class="form-control" id="r1RawRemarks" rows="3" readonly></textarea>
+                                    <textarea class="form-control" id="r1RawRemarks" rows="3" readonly maxlength="120"></textarea>
                                 </div>
                             </div>
                             <div class="mb-3">
                                 <label for="r2CTC" class="form-label">CTC:</label>
-                                <input type="text" class="form-control" id="r2CTC">
+                                <input type="text" class="form-control" id="r2CTC" maxlength="120">
                             </div>
                         </form>
                     </div>
@@ -1396,23 +1420,23 @@
                         <form id="offerDetailsForm">
                             <div class="mb-3">
                                 <label for="offerCandidateName" class="form-label">Candidate Name:</label>
-                                <input type="text" class="form-control" id="offerCandidateName" readonly>
+                                <input type="text" class="form-control" id="offerCandidateName" readonly maxlength="120">
                             </div>
                             <div class="mb-3">
                                 <label for="offerInterestedPosition" class="form-label">Interested Position:</label>
-                                <input type="text" class="form-control" id="offerInterestedPosition" readonly>
+                                <input type="text" class="form-control" id="offerInterestedPosition" readonly maxlength="120">
                             </div>
                             <div class="mb-3">
                                 <label for="offeredPosition" class="form-label">Offered Position:</label>
-                                <input type="text" class="form-control" id="offeredPosition">
+                                <input type="text" class="form-control" id="offeredPosition" maxlength="120">
                             </div>
                             <div class="mb-3">
                                 <label for="offeredCTC" class="form-label">Offered CTC:</label>
-                                <input type="text" class="form-control" id="offeredCTC">
+                                <input type="text" class="form-control" id="offeredCTC" maxlength="120">
                             </div>
                             <div class="mb-3">
                                 <label for="joiningDate" class="form-label">Joining Date:</label>
-                                <input type="text" class="form-control" id="joiningDate">
+                                <input type="text" class="form-control" id="joiningDate" maxlength="120">
                             </div>
                         </form>
                     </div>
@@ -1507,7 +1531,7 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="finalRemarksTextArea" class="form-label">Final Remarks:</label>
-                            <textarea class="form-control" id="finalRemarksTextArea" rows="5"></textarea>
+                            <textarea class="form-control" id="finalRemarksTextArea" rows="5" maxlength="120"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1539,7 +1563,7 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="initialScreeningTextArea" class="form-label">Initial Screening Comments:</label>
-                            <textarea class="form-control" id="initialScreeningTextArea" rows="5"></textarea>
+                            <textarea class="form-control" id="initialScreeningTextArea" rows="5" maxlength="120"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">

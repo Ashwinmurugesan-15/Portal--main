@@ -6,6 +6,8 @@ let groupChart = null;
 let distributionChart = null;
 let dropdownOptions = {};
 let currentIsAdmin = false; // Store admin status for filtering
+let currentPage = 1;
+const rowsPerPage = 50;
 const API_BASE_URL = window.API_BASE_URL || '';
 
 // Global function to populate the year filter
@@ -759,7 +761,9 @@ function showCandidateDetails(candidate) {
 
             // Special handling for specific fields
             if (field === 'Resume' && candidate[field]) {
-                value.innerHTML = `<a href="${candidate[field]}" target="_blank" class="btn btn-outline-primary btn-sm">
+                const resumeValue = candidate[field].toString().trim();
+                const linkHref = resumeValue.startsWith('http') ? resumeValue : `/uploads/${resumeValue}`;
+                value.innerHTML = `<a href="${linkHref}" target="_blank" class="btn btn-outline-primary btn-sm">
                     <i class="bi bi-file-earmark-pdf me-1"></i>View Resume
                 </a>`;
             } else if (field === 'LinkedIn Profile' && candidate[field]) {
@@ -976,6 +980,7 @@ function applyTableFilters() {
     const hasNoticePeriodFilter = selectedNoticePeriod !== '';
 
     if (!hasPositionFilter && !hasStatusFilter && !hasLocationFilter && !hasExperienceFilter && !hasNoticePeriodFilter) {
+        currentPage = 1; // Reset to first page when filter is cleared
         populateTable(originalTableData, currentIsAdmin);
         return;
     }
@@ -1020,6 +1025,7 @@ function applyTableFilters() {
             return matchesPosition && matchesStatus && matchesLocation && matchesExperience && matchesNoticePeriod;
         });
 
+    currentPage = 1; // Reset to first page when filter is applied
     populateTable(filteredData, currentIsAdmin);
 }
 
@@ -1071,7 +1077,7 @@ function updateStickyColumnPositions() {
 
 // Function to populate the data table
 function populateTable(data, isAdmin) {
-
+    if (currentPage === undefined) currentPage = 1;
     tableData = data;
     currentIsAdmin = isAdmin; // Store admin status
 
@@ -1080,7 +1086,6 @@ function populateTable(data, isAdmin) {
 
     // Also update analytics when table data is populated
     if (data && data.length > 0) {
-
         updateMonthlyStats(data);
         updateOfferDetails(data);
     }
@@ -1151,10 +1156,33 @@ function populateTable(data, isAdmin) {
 
         tableHead.appendChild(headerRow);
 
-        // Create table rows
-        data.forEach((row, index) => {
+        // Pagination Logic
+        const totalRows = data.length;
+        const totalPages = Math.ceil(totalRows / rowsPerPage);
+        
+        // Ensure currentPage is within bounds
+        if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = Math.min(startIndex + rowsPerPage, totalRows);
+        const pagedData = data.slice(startIndex, endIndex);
+
+        // Update pagination info
+        const paginationInfo = document.getElementById('paginationInfo');
+        if (paginationInfo) {
+            paginationInfo.textContent = totalRows > 0 
+                ? `Showing ${startIndex + 1} to ${endIndex} of ${totalRows} entries`
+                : 'Showing 0 to 0 of 0 entries';
+        }
+
+        renderPagination(totalPages);
+
+        // Create table rows for paged data
+        pagedData.forEach((row, pagedIndex) => {
+            const actualIndex = startIndex + pagedIndex;
             const tr = document.createElement('tr');
-            tr.dataset.index = index;
+            tr.dataset.index = actualIndex;
             tr.style.cursor = 'pointer'; // Add pointer cursor to indicate clickable
 
             // Apply row color based on Application Status - REMOVED
@@ -1222,11 +1250,24 @@ function populateTable(data, isAdmin) {
                     } else {
                         td.textContent = '';
                     }
-                } else if (column === 'Resume' || column === 'LinkedIn Profile') {
+                } else if (column === 'Resume') {
+                    const resumeValue = row[column] ? row[column].toString().trim() : '';
+                    if (resumeValue && (resumeValue.toLowerCase().endsWith('.pdf') || resumeValue.startsWith('http'))) {
+                        const link = document.createElement('a');
+                        // Check if it's a legacy URL or a new filename
+                        link.href = resumeValue.startsWith('http') ? resumeValue : `/uploads/${resumeValue}`;
+                        link.textContent = 'View Resume';
+                        link.target = '_blank';
+                        link.className = 'text-decoration-none';
+                        td.appendChild(link);
+                    } else {
+                        td.textContent = '';
+                    }
+                } else if (column === 'LinkedIn Profile') {
                     if (row[column] && row[column].toString().startsWith('http')) {
                         const link = document.createElement('a');
                         link.href = row[column];
-                        link.textContent = column === 'Resume' ? 'View Resume' : 'View Profile';
+                        link.textContent = 'View Profile';
                         link.target = '_blank';
                         link.className = 'text-decoration-none';
                         td.appendChild(link);
@@ -1714,9 +1755,71 @@ function populateTable(data, isAdmin) {
         // updateGroupByOptions(); // Removed as function is not defined
     } else {
 
+        const paginationInfo = document.getElementById('paginationInfo');
+        if (paginationInfo) paginationInfo.textContent = 'Showing 0 to 0 of 0 entries';
+        const paginationControls = document.getElementById('paginationControls');
+        if (paginationControls) paginationControls.innerHTML = '';
+
         tableHead.innerHTML = '<tr><th colspan="100%">No data available</th></tr>';
         tableBody.innerHTML = '<tr><td colspan="100%" class="text-center text-muted">No candidates found</td></tr>';
     }
+}
+
+// Function to render pagination controls
+function renderPagination(totalPages) {
+    const paginationControls = document.getElementById('paginationControls');
+    if (!paginationControls) return;
+
+    paginationControls.innerHTML = '';
+
+    if (totalPages < 1) return;
+
+    // Previous Button
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Previous"><span aria-hidden="true">&laquo;</span></a>`;
+    prevLi.onclick = (e) => {
+        e.preventDefault();
+        if (currentPage > 1) {
+            currentPage--;
+            populateTable(tableData, currentIsAdmin);
+        }
+    };
+    paginationControls.appendChild(prevLi);
+
+    // Page Numbers
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.onclick = (e) => {
+            e.preventDefault();
+            currentPage = i;
+            populateTable(tableData, currentIsAdmin);
+        };
+        paginationControls.appendChild(li);
+    }
+
+    // Next Button
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Next"><span aria-hidden="true">&raquo;</span></a>`;
+    nextLi.onclick = (e) => {
+        e.preventDefault();
+        if (currentPage < totalPages) {
+            currentPage++;
+            populateTable(tableData, currentIsAdmin);
+        }
+    };
+    paginationControls.appendChild(nextLi);
 }
 
 // Function to update record status from the table
@@ -1857,18 +1960,44 @@ function populateFormFields(formId, data = null) {
                 input.id = field.replace(/\s+/g, '');
                 input.name = field.replace(/\s+/g, '');
                 input.rows = 3;
+                input.maxLength = 120;
 
                 if (data && data[field]) {
                     input.value = data[field];
                 }
             }
-            else if (field === 'Resume' || field === 'LinkedIn Profile') {
+            // Special handling for URL fields and Resume PDF upload
+            else if (field === 'Resume') {
+                input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.pdf';
+                input.className = 'form-control';
+                input.id = field.replace(/\s+/g, '');
+                input.name = field.replace(/\s+/g, '');
+                
+                // If editing and has existing resume, show link
+            if (data && data[field]) {
+                const small = document.createElement('small');
+                small.className = 'text-muted d-block mt-1';
+                const resumeValue = data[field].toString().trim();
+                const linkHref = resumeValue.startsWith('http') ? resumeValue : `/uploads/${resumeValue}`;
+                small.innerHTML = `Current file: <a href="${linkHref}" target="_blank">View Resume</a>`;
+                // Note: input.parentNode might not exist yet if we are just creating it
+                // So we use a small timeout to append it after input is added to DOM
+                setTimeout(() => {
+                    if (input.parentNode) {
+                        input.parentNode.appendChild(small);
+                    }
+                }, 0);
+            }
+            } else if (field === 'LinkedIn Profile') {
                 input = document.createElement('input');
                 input.type = 'url';
                 input.className = 'form-control';
                 input.id = field.replace(/\s+/g, '');
                 input.name = field.replace(/\s+/g, '');
                 input.placeholder = `Enter ${field} URL...`;
+                input.maxLength = 120;
 
                 if (data && data[field]) {
                     input.value = data[field];
@@ -1882,6 +2011,7 @@ function populateFormFields(formId, data = null) {
                 input.name = field.replace(/\s+/g, '');
                 input.placeholder = `Enter ${field}...`;
                 input.required = true;
+                input.maxLength = 120;
 
                 if (data && data[field]) {
                     input.value = data[field];
@@ -1894,6 +2024,7 @@ function populateFormFields(formId, data = null) {
                 input.id = field.replace(/\s+/g, '');
                 input.name = field.replace(/\s+/g, '');
                 input.placeholder = `Enter ${field}...`;
+                input.maxLength = 120;
 
                 if (data && data[field]) {
                     input.value = data[field];
@@ -1906,6 +2037,7 @@ function populateFormFields(formId, data = null) {
                 input.id = field.replace(/\s+/g, '');
                 input.name = field.replace(/\s+/g, '');
                 input.placeholder = `Enter ${field}...`;
+                input.maxLength = 120;
 
                 if (data && data[field]) {
                     input.value = data[field];
@@ -2003,11 +2135,36 @@ function openEditModal(index, isAdmin) {
                     input.appendChild(optionElement);
                 });
             }
-        } else if (column === 'Resume' || column === 'LinkedIn Profile') {
+        } else if (column === 'Resume') {
+            input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.pdf';
+            input.className = 'form-control';
+            if (!isEditable) {
+                input.disabled = true;
+                input.style.backgroundColor = '#e9ecef';
+                input.style.cursor = 'not-allowed';
+            }
+            
+            // If has existing resume, show link
+            if (record[column]) {
+                const small = document.createElement('small');
+                small.className = 'text-muted d-block mt-1';
+                const resumeValue = record[column].toString().trim();
+                const linkHref = resumeValue.startsWith('http') ? resumeValue : `/uploads/${resumeValue}`;
+                small.innerHTML = `Current file: <a href="${linkHref}" target="_blank">View Resume</a>`;
+                // Append after input creation logic
+                setTimeout(() => {
+                    const parent = input.parentNode;
+                    if (parent) parent.appendChild(small);
+                }, 0);
+            }
+        } else if (column === 'LinkedIn Profile') {
             input = document.createElement('input');
             input.type = 'url';
             input.className = 'form-control';
             input.value = record[column] || '';
+            input.maxLength = 120;
             if (!isEditable) {
                 input.readOnly = true;
                 input.style.backgroundColor = '#e9ecef';
@@ -2018,6 +2175,7 @@ function openEditModal(index, isAdmin) {
             input.className = 'form-control';
             input.rows = column.includes('Remarks') || column.includes('Screening') ? 3 : 1;
             input.value = record[column] || '';
+            input.maxLength = 120;
             if (!isEditable) {
                 input.readOnly = true;
                 input.style.backgroundColor = '#e9ecef';
@@ -2159,21 +2317,16 @@ function updateInitialScreeningTableCell(candidateIndex, newValue) {
 // Function to save new record
 function saveNewRecord() {
     const formData = new FormData(document.getElementById('addDataForm'));
-    const newRecord = {};
-
-    // Convert form data to object
-    for (let [key, value] of formData.entries()) {
-        // Convert keys back to original format with spaces
-        const originalKey = FIELD_ORDER.find(field => field.replace(/\s+/g, '') === key) || key;
-        newRecord[originalKey] = value;
+    
+    // Remove empty file if not selected
+    const resumeFile = formData.get('Resume');
+    if (resumeFile && resumeFile.size === 0) {
+        formData.delete('Resume');
     }
 
     fetch(API_BASE_URL + '/api/data', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newRecord),
+        body: formData
     })
         .then(response => response.json())
         .then(data => {
@@ -2199,21 +2352,16 @@ function saveNewRecord() {
 function updateRecord() {
     const index = document.getElementById('editRecordIndex').value;
     const formData = new FormData(document.getElementById('editDataForm'));
-    const updatedRecord = {};
-
-    // Convert form data to object
-    for (let [key, value] of formData.entries()) {
-        // Convert keys back to original format with spaces
-        const originalKey = FIELD_ORDER.find(field => field.replace(/\s+/g, '') === key) || key;
-        updatedRecord[originalKey] = value;
+    
+    // Remove empty file if not selected
+    const resumeFile = formData.get('Resume');
+    if (resumeFile && resumeFile.size === 0) {
+        formData.delete('Resume');
     }
 
     fetch(API_BASE_URL + `/api/data/${index}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedRecord),
+        body: formData
     })
         .then(response => response.json())
         .then(data => {
@@ -3573,20 +3721,37 @@ function showCandidateDetails(candidate, index, isAdmin) {
                 `;
             } else {
                 // Special handling for Resume and LinkedIn Profile
-                if (field === 'Resume' && candidate[field] && candidate[field].toString().startsWith('http')) {
-                    const isEditable = editableFields === null || editableFields.includes(field);
-                    let label = field;
-                    detailsHTML += `
-                        <div class="candidate-detail-item" data-candidate-index="${index}" data-field-name="${field}" data-editable="${isEditable}">
-                            <span class="candidate-detail-label">${label}:</span>
-                            <span class="candidate-detail-value display-mode" id="display-${field.replace(/\s/g, '')}">
-                                <a href="${candidate[field]}" target="_blank" class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-file-earmark-pdf me-1"></i>View Resume
-                                </a>
-                            </span>
-                            <input type="url" class="form-control edit-mode" id="input-${field.replace(/\s/g, '')}" value="${displayValue}" style="display: none;" ${!isEditable ? 'readonly' : ''}>
-                        </div>
-                    `;
+                if (field === 'Resume') {
+                    const resumeValue = candidate[field] ? candidate[field].toString() : '';
+                    if (resumeValue && (resumeValue.startsWith('http') || resumeValue.toLowerCase().endsWith('.pdf'))) {
+                        const isEditable = editableFields === null || editableFields.includes(field);
+                        let label = field;
+                        const linkHref = resumeValue.startsWith('http') ? resumeValue : `/uploads/${resumeValue}`;
+                        detailsHTML += `
+                            <div class="candidate-detail-item" data-candidate-index="${index}" data-field-name="${field}" data-editable="${isEditable}">
+                                <span class="candidate-detail-label">${label}:</span>
+                                <span class="candidate-detail-value display-mode" id="display-${field.replace(/\s/g, '')}">
+                                    <a href="${linkHref}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        <i class="bi bi-file-earmark-pdf me-1"></i>View Resume
+                                    </a>
+                                </span>
+                                <input type="file" accept=".pdf" class="form-control edit-mode" id="input-${field.replace(/\s/g, '')}" style="display: none;" ${!isEditable ? 'disabled' : ''}>
+                            </div>
+                        `;
+                    } else {
+                        // Handle empty or non-link resume field
+                        const isEditable = editableFields === null || editableFields.includes(field);
+                        let label = field;
+                        detailsHTML += `
+                            <div class="candidate-detail-item" data-candidate-index="${index}" data-field-name="${field}" data-editable="${isEditable}">
+                                <span class="candidate-detail-label">${label}:</span>
+                                <span class="candidate-detail-value display-mode" id="display-${field.replace(/\s/g, '')}">
+                                    ${displayValue}
+                                </span>
+                                <input type="file" accept=".pdf" class="form-control edit-mode" id="input-${field.replace(/\s/g, '')}" style="display: none;" ${!isEditable ? 'disabled' : ''}>
+                            </div>
+                        `;
+                    }
                 } else if (field === 'LinkedIn Profile' && candidate[field] && candidate[field].toString().startsWith('http')) {
                     const isEditable = editableFields === null || editableFields.includes(field);
                     let label = field;
@@ -3598,7 +3763,7 @@ function showCandidateDetails(candidate, index, isAdmin) {
                                     <i class="bi bi-linkedin me-1"></i>View LinkedIn
                                 </a>
                             </span>
-                            <input type="url" class="form-control edit-mode" id="input-${field.replace(/\s/g, '')}" value="${displayValue}" style="display: none;" ${!isEditable ? 'readonly' : ''}>
+                            <input type="url" class="form-control edit-mode" id="input-${field.replace(/\s/g, '')}" value="${displayValue}" style="display: none;" ${!isEditable ? 'readonly' : ''} maxlength="120">
                         </div>
                     `;
                 } else if (field === 'Interview Status' || field === 'Application Status' || field === 'Reject Mail Sent') {
@@ -3673,7 +3838,7 @@ function showCandidateDetails(candidate, index, isAdmin) {
                         <div class="candidate-detail-item" data-candidate-index="${index}" data-field-name="${field}" data-editable="${isEditable}">
                             <span class="candidate-detail-label">${label}:</span>
                             <span class="candidate-detail-value display-mode ${editableClass}" id="display-${field.replace(/\s/g, '')}" style="${cursorStyle}">${displayValue}</span>
-                            <input type="${inputType}" class="form-control edit-mode" id="input-${field.replace(/\s/g, '')}" value="${displayValue}" style="display: none;" ${!isEditable ? 'readonly' : ''}>
+                            <input type="${inputType}" class="form-control edit-mode" id="input-${field.replace(/\s/g, '')}" value="${displayValue}" style="display: none;" ${!isEditable ? 'readonly' : ''} maxlength="120">
                         </div>
                     `;
                 }
@@ -3707,7 +3872,7 @@ function showCandidateDetails(candidate, index, isAdmin) {
                     <div class="candidate-detail-item" data-candidate-index="${index}" data-field-name="${field}" data-editable="${isEditable}">
                         <span class="candidate-detail-label">${field}:</span>
                         <span class="candidate-detail-value display-mode ${editableClass}" id="display-${field.replace(/\s/g, '')}" style="${cursorStyle}">${displayValue}</span>
-                        <input type="${inputType}" class="form-control edit-mode" id="input-${field.replace(/\s/g, '')}" value="${displayValue}" style="display: none;" ${!isEditable ? 'readonly' : ''}>
+                        <input type="${inputType}" class="form-control edit-mode" id="input-${field.replace(/\s/g, '')}" value="${displayValue}" style="display: none;" ${!isEditable ? 'readonly' : ''} maxlength="120">
                         </div>
                     `;
                 }
@@ -3771,7 +3936,7 @@ function showCandidateDetails(candidate, index, isAdmin) {
         remarksSection.className = 'candidate-detail-item';
         remarksSection.innerHTML = `
             <span class="candidate-detail-label">Remarks:</span>
-            <textarea id="candidateRemarks" class="form-control edit-mode" rows="3">${candidate.Remarks || ''}</textarea>
+            <textarea id="candidateRemarks" class="form-control edit-mode" rows="3" maxlength="120">${candidate.Remarks || ''}</textarea>
         `;
         content.appendChild(remarksSection);
     }
@@ -3823,10 +3988,10 @@ function showCandidateDetails(candidate, index, isAdmin) {
                     displaySpan.style.display = 'block';
                     editInput.style.display = 'none';
                     // Update display value based on field type
-                    if (fieldName === 'Resume' && editInput.value && editInput.value.toString().startsWith('http')) {
-                        displaySpan.innerHTML = `<a href="${editInput.value}" target="_blank" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-file-earmark-pdf me-1"></i>View Resume
-                        </a>`;
+                    if (fieldName === 'Resume') {
+                        // For resume, we don't update display from file input directly as we can't get path
+                        // Ideally we should reload data, but for now we just show existing link if it exists
+                        // The file upload happens on save
                     } else if (fieldName === 'LinkedIn Profile' && editInput.value && editInput.value.toString().startsWith('http')) {
                         displaySpan.innerHTML = `<a href="${editInput.value}" target="_blank" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-linkedin me-1"></i>View LinkedIn
@@ -3965,7 +4130,7 @@ function showRemarksDetail(remarks, candidateIndex, isAdmin) {
         modalContent.innerHTML = `
             <div class="mb-3">
                 <label for="remarksTextArea" class="form-label">Remarks:</label>
-                <textarea class="form-control" id="remarksTextArea" rows="5" ${isAdmin ? '' : 'readonly'} >${remarks || ''}</textarea>
+                <textarea class="form-control" id="remarksTextArea" rows="5" ${isAdmin ? '' : 'readonly'} maxlength="120">${remarks || ''}</textarea>
             </div>
         `;
 
@@ -3994,7 +4159,7 @@ function showInitialScreeningModal(row, candidateIndex) {
         modalContent.innerHTML = `
             <div class="mb-3">
                 <label for="initialScreeningTextArea" class="form-label">Initial Screening:</label>
-                <textarea class="form-control" id="initialScreeningTextArea" rows="5">${initialScreeningValue}</textarea>
+                <textarea class="form-control" id="initialScreeningTextArea" rows="5" maxlength="120">${initialScreeningValue}</textarea>
             </div>
         `;
 
@@ -4063,7 +4228,7 @@ function showRound1DAndTModal(row, candidateIndex) {
         modalContent.innerHTML = `
             <div class="mb-3">
                 <label for="round1DAndTTextArea" class="form-label">Round 1 D&T:</label>
-                <textarea class="form-control" id="round1DAndTTextArea" rows="10">${r1dandtValue}</textarea>
+                <textarea class="form-control" id="round1DAndTTextArea" rows="10" maxlength="120">${r1dandtValue}</textarea>
             </div>
         `;
 
@@ -4085,7 +4250,7 @@ function showRound2DAndTModal(row, candidateIndex) {
         modalContent.innerHTML = `
             <div class="mb-3">
                 <label for="round2DAndTTextArea" class="form-label">Round 2 D&T:</label>
-                <textarea class="form-control" id="round2DAndTTextArea" rows="10">${r2dandtValue}</textarea>
+                <textarea class="form-control" id="round2DAndTTextArea" rows="10" maxlength="120">${r2dandtValue}</textarea>
             </div>
         `;
 
@@ -4294,19 +4459,22 @@ function updateOfferDetails(data) {
                 <input type="text" 
                                  class="form-control form-control-sm offered-position-input" 
                                  value="${item['Offered Position'] || ''}" 
-                                 data-candidate-index="${originalIndex}">
+                                 data-candidate-index="${originalIndex}"
+                                 maxlength="120">
             </td>
             <td>
                 <input type="number" 
                                  class="form-control form-control-sm offered-ctc-input" 
                                  value="${item['Offered CTC'] || ''}" 
-                                 data-candidate-index="${originalIndex}">
+                                 data-candidate-index="${originalIndex}"
+                                 maxlength="120">
             </td>
             <td>
                 <input type="date" 
                                  class="form-control form-control-sm joining-date-input" 
                                  value="${item['Joining Date'] || ''}" 
-                                 data-candidate-index="${originalIndex}">
+                                 data-candidate-index="${originalIndex}"
+                                 maxlength="120">
             </td>
         `;
         tbody.appendChild(row);

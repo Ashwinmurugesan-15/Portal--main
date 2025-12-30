@@ -31,8 +31,13 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 templates_dir = os.path.join(base_dir, "templates")
 static_dir = os.path.join(base_dir, "static")
 
+# PDF Upload Configuration
+UPLOAD_FOLDER = os.path.join(base_dir, "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 app = Flask(__name__, static_folder=static_dir, template_folder=templates_dir)
 app.config.from_object(app_config)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = app.config.get("SECRET_KEY") or None
 
 if not app.secret_key:
@@ -511,6 +516,11 @@ def admin_required(f):
 def index():
     return render_template('index.html', is_admin=session.get('is_admin', False))
 
+@app.route('/uploads/<path:filename>')
+@login_required
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 @app.route('/resume-matcher')
 @login_required
 def resume_matcher_frontend():
@@ -527,7 +537,19 @@ def get_data():
 @login_required
 def add_data():
     try:
-        new_data = request.json
+        # Handle multipart/form-data (for file uploads) or application/json
+        if request.is_json:
+            new_data = request.json
+        else:
+            new_data = request.form.to_dict()
+            if 'Resume' in request.files:
+                file = request.files['Resume']
+                if file and file.filename:
+                    # Create a safe, timestamped filename
+                    filename = f"{int(time.time())}_{file.filename}"
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                    new_data['Resume'] = filename
+        
         data = load_data()
         data.append(new_data)
         save_data(data)
@@ -539,13 +561,25 @@ def add_data():
 @login_required
 def update_data(index):
     try:
-        update_data = request.json
+        # Handle multipart/form-data (for file uploads) or application/json
+        if request.is_json:
+            update_payload = request.json
+        else:
+            update_payload = request.form.to_dict()
+            if 'Resume' in request.files:
+                file = request.files['Resume']
+                if file and file.filename:
+                    # Create a safe, timestamped filename
+                    filename = f"{int(time.time())}_{file.filename}"
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                    update_payload['Resume'] = filename
+        
         data = load_data()
         
         # Check if index is valid
         if 0 <= index < len(data):
             # Update the data at the specified index
-            for key, value in update_data.items():
+            for key, value in update_payload.items():
                 # Convert specific fields to appropriate types if necessary
                 if key in ['Current CTC per Annum', 'Expected CTC per Annum', 'Offered CTC']:
                     try:
