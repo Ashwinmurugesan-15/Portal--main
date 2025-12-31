@@ -13,7 +13,6 @@
     <meta http-equiv="Expires" content="0">
     <script>
         window.API_BASE_URL = "{{ APP_CONFIG['API_CONFIG']['BASE_URL'] }}";
-        window.RESUME_API_BASE_URL = "{{ APP_CONFIG['API_CONFIG']['RESUME_BASE_URL'] }}";
     </script>
     <style>
         :root {
@@ -143,7 +142,8 @@
         #monthlyStatsTable thead th {
             padding: 0.25rem 0.5rem !important;
             font-size: 1rem !important;
-            color: #212529 !important; /* Darker text color */
+            color: #212529 !important;
+            /* Darker text color */
             font-weight: bold !important;
         }
 
@@ -889,23 +889,21 @@
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
                         <a class="nav-link active" href="#" data-bs-target="#dataTab">
-                            <i class="bi bi-database"></i>
-                            Data Management
+                            <i class="bi bi-clipboard-data"></i>
+                            Candidate Management
                         </a>
                     </li>
-                    {% if is_admin %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/resume-matcher">
-                            <i class="bi bi-file-earmark-text"></i>
-                            Resume Filter
-                        </a>
-                    </li>
-                    {% endif %}
                     {% if is_admin %}
                     <li class="nav-item">
                         <a class="nav-link" href="#" data-bs-target="#analysisTab">
                             <i class="bi bi-bar-chart-line"></i>
                             Analytics
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/resume-filter">
+                            <i class="bi bi-file-earmark-text"></i>
+                            Resume Filter
                         </a>
                     </li>
                     {% endif %}
@@ -1043,12 +1041,14 @@
                             </div>
                             <div class="card-footer bg-white border-top py-3">
                                 <!-- Pagination Controls -->
-                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+                                <div
+                                    class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
                                     <div id="paginationInfo" class="text-muted small fw-medium order-2 order-md-1">
                                         Showing 0 to 0 of 0 entries
                                     </div>
                                     <nav aria-label="Page navigation" class="order-1 order-md-2">
-                                        <ul class="pagination pagination-sm mb-0 justify-content-center" id="paginationControls">
+                                        <ul class="pagination pagination-sm mb-0 justify-content-center"
+                                            id="paginationControls">
                                             <!-- Pagination buttons will be dynamically populated -->
                                         </ul>
                                     </nav>
@@ -1208,16 +1208,23 @@
                                     <table class="table table-bordered table-hover mb-0">
                                         <thead class="table-light">
                                             <tr>
-                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Name</th>
-                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Interested Position</th>
-                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Offered Position</th>
-                                                <th style="color: #212529; font-weight: bold; font-size: 1rem; width: 200px;">Offered CTC</th>
-                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Joining Date</th>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Name
+                                                </th>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">
+                                                    Interested Position</th>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Offered
+                                                    Position</th>
+                                                <th
+                                                    style="color: #212529; font-weight: bold; font-size: 1rem; width: 200px;">
+                                                    Offered CTC</th>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">Joining
+                                                    Date</th>
                                             </tr>
                                         </thead>
                                         <tbody id="offerDetailsBodyIndex">
                                             <tr>
-                                                <td colspan="5" class="text-center text-muted">Loading offer details...</td>
+                                                <td colspan="5" class="text-center text-muted">Loading offer details...
+                                                </td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -1238,7 +1245,8 @@
                     </div>
                     <!-- Application Status Chart -->
                     <div class="col-md-6 mb-4">
-                        <div class="card shadow-sm">
+                        <!-- Application Status Card -->
+                        <div class="card shadow-sm h-100">
                             <div class="card-header bg-light">
                                 <h5 class="mb-0">
                                     <i class="bi bi-pie-chart-fill me-2"></i>
@@ -1251,6 +1259,37 @@
                                 </div>
                                 <div class="chart-container chart-view" style="display: none; height: 400px;">
                                     <canvas id="applicationStatusChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- User Activity Table - Right side of Application Status -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-people-fill me-2"></i>
+                                    User Activity
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">User
+                                                </th>
+                                                <th style="color: #212529; font-weight: bold; font-size: 1rem;">
+                                                    Candidates Screened</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="userActivityBodyIndex">
+                                            <tr>
+                                                <td colspan="2" class="text-center text-muted">Loading user activity...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -1317,15 +1356,18 @@
                             </div>
                             <div class="mb-3">
                                 <label for="r1TechnicalAssessment" class="form-label">Technical Assessment:</label>
-                                <textarea class="form-control" id="r1TechnicalAssessment" rows="3" maxlength="120"></textarea>
+                                <textarea class="form-control" id="r1TechnicalAssessment" rows="3"
+                                    maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r1ProblemSolving" class="form-label">Problem-Solving:</label>
-                                <textarea class="form-control" id="r1ProblemSolving" rows="3" maxlength="120"></textarea>
+                                <textarea class="form-control" id="r1ProblemSolving" rows="3"
+                                    maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r1OverallPotential" class="form-label">Overall Potential:</label>
-                                <textarea class="form-control" id="r1OverallPotential" rows="3" maxlength="120"></textarea>
+                                <textarea class="form-control" id="r1OverallPotential" rows="3"
+                                    maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r1Recommendation" class="form-label">Recommendation:</label>
@@ -1367,26 +1409,32 @@
                             </div>
                             <div class="mb-3">
                                 <label for="r2TechnicalAssessment" class="form-label">Technical Assessment:</label>
-                                <textarea class="form-control" id="r2TechnicalAssessment" rows="3" maxlength="120"></textarea>
+                                <textarea class="form-control" id="r2TechnicalAssessment" rows="3"
+                                    maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r2ProblemSolving" class="form-label">Problem-Solving:</label>
-                                <textarea class="form-control" id="r2ProblemSolving" rows="3" maxlength="120"></textarea>
+                                <textarea class="form-control" id="r2ProblemSolving" rows="3"
+                                    maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r2OverallPotential" class="form-label">Overall Potential:</label>
-                                <textarea class="form-control" id="r2OverallPotential" rows="3" maxlength="120"></textarea>
+                                <textarea class="form-control" id="r2OverallPotential" rows="3"
+                                    maxlength="120"></textarea>
                             </div>
                             <div class="mb-3">
                                 <label for="r2Recommendation" class="form-label">Recommendation:</label>
-                                <textarea class="form-control" id="r2Recommendation" rows="3" maxlength="120"></textarea>
+                                <textarea class="form-control" id="r2Recommendation" rows="3"
+                                    maxlength="120"></textarea>
                                 <div class="mb-3" id="r2RawRemarksContainer" style="display:none;">
                                     <label for="r2RawRemarks" class="form-label">Raw Remarks (Non-JSON)</label>
-                                    <textarea class="form-control" id="r2RawRemarks" rows="3" readonly maxlength="120"></textarea>
+                                    <textarea class="form-control" id="r2RawRemarks" rows="3" readonly
+                                        maxlength="120"></textarea>
                                 </div>
                                 <div class="mb-3" id="r1RawRemarksContainer" style="display:none;">
                                     <label for="r1RawRemarks" class="form-label">Raw Remarks (Non-JSON)</label>
-                                    <textarea class="form-control" id="r1RawRemarks" rows="3" readonly maxlength="120"></textarea>
+                                    <textarea class="form-control" id="r1RawRemarks" rows="3" readonly
+                                        maxlength="120"></textarea>
                                 </div>
                             </div>
                             <div class="mb-3">
@@ -1420,11 +1468,13 @@
                         <form id="offerDetailsForm">
                             <div class="mb-3">
                                 <label for="offerCandidateName" class="form-label">Candidate Name:</label>
-                                <input type="text" class="form-control" id="offerCandidateName" readonly maxlength="120">
+                                <input type="text" class="form-control" id="offerCandidateName" readonly
+                                    maxlength="120">
                             </div>
                             <div class="mb-3">
                                 <label for="offerInterestedPosition" class="form-label">Interested Position:</label>
-                                <input type="text" class="form-control" id="offerInterestedPosition" readonly maxlength="120">
+                                <input type="text" class="form-control" id="offerInterestedPosition" readonly
+                                    maxlength="120">
                             </div>
                             <div class="mb-3">
                                 <label for="offeredPosition" class="form-label">Offered Position:</label>
@@ -1531,7 +1581,8 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="finalRemarksTextArea" class="form-label">Final Remarks:</label>
-                            <textarea class="form-control" id="finalRemarksTextArea" rows="5" maxlength="120"></textarea>
+                            <textarea class="form-control" id="finalRemarksTextArea" rows="5"
+                                maxlength="120"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1563,7 +1614,8 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="initialScreeningTextArea" class="form-label">Initial Screening Comments:</label>
-                            <textarea class="form-control" id="initialScreeningTextArea" rows="5" maxlength="120"></textarea>
+                            <textarea class="form-control" id="initialScreeningTextArea" rows="5"
+                                maxlength="120"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1581,7 +1633,8 @@
         </div>
 
         <!-- Round 1 D&T Detail Modal -->
-        <div class="modal fade" id="round1DAndTDetailModal" tabindex="-1" aria-labelledby="round1DAndTDetailModalLabel" aria-hidden="true">
+        <div class="modal fade" id="round1DAndTDetailModal" tabindex="-1" aria-labelledby="round1DAndTDetailModalLabel"
+            aria-hidden="true">
             <div class="modal-dialog modal-dialog-scrollable" style="max-width: 300px; width: 90%;">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -1589,7 +1642,8 @@
                             <i class="bi bi-journal-text me-2"></i>
                             Round 1 D&T Details
                         </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="round1DAndTDetailContent">
                         <!-- Content will be dynamically loaded here -->
@@ -1603,7 +1657,8 @@
         </div>
 
         <!-- Round 2 D&T Detail Modal -->
-        <div class="modal fade" id="round2DAndTDetailModal" tabindex="-1" aria-labelledby="round2DAndTDetailModalLabel" aria-hidden="true">
+        <div class="modal fade" id="round2DAndTDetailModal" tabindex="-1" aria-labelledby="round2DAndTDetailModalLabel"
+            aria-hidden="true">
             <div class="modal-dialog modal-dialog-scrollable" style="max-width: 300px; width: 90%;">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -1611,7 +1666,8 @@
                             <i class="bi bi-journal-text me-2"></i>
                             Round 2 D&T Details
                         </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="round2DAndTDetailContent">
                         <!-- Content will be dynamically loaded here -->
@@ -1670,12 +1726,43 @@
             });
 
             // Function to populate year dropdown
-            
+
 
             // Initialize year dropdown when DOM is loaded
             document.addEventListener('DOMContentLoaded', function () {
                 console.log('DOM loaded');
                 populateYearFilter();
+
+                // Fetch and populate User Activity table
+                fetch('/api/analytics')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Populate all User Activity tables
+                        const tableIds = ['userActivityBodyMain', 'userActivityBodyIndex'];
+                        tableIds.forEach(tableId => {
+                            const userActivityBody = document.getElementById(tableId);
+                            if (userActivityBody && data.user_activity && data.user_activity.length > 0) {
+                                userActivityBody.innerHTML = data.user_activity.map(item => `
+                                    <tr>
+                                        <td style="text-align: center;">${item.username}</td>
+                                        <td class="text-center">${item.candidates_screened}</td>
+                                    </tr>
+                                `).join('');
+                            } else if (userActivityBody) {
+                                userActivityBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No user activity data available</td></tr>';
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching user activity:', error);
+                        const tableIds = ['userActivityBodyMain', 'userActivityBodyIndex'];
+                        tableIds.forEach(tableId => {
+                            const userActivityBody = document.getElementById(tableId);
+                            if (userActivityBody) {
+                                userActivityBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No user activity data available</td></tr>';
+                            }
+                        });
+                    });
             });
         </script>
         <script src="/static/js/app.js"></script>

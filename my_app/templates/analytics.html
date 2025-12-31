@@ -150,32 +150,53 @@
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/">
+            <div class="d-flex align-items-center">
                 <img src="/static/images/GuhaTekHorizontalLarge.svg" alt="GuhaTek Logo"
-                    style="height: 40px; margin-right: 1rem;">
-                Candidate Tracking System
-            </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="/">
-                    <i class="bi bi-house"></i>
-                    Home
-                </a>
-                <a class="nav-link active" href="/analytics">
-                    <i class="bi bi-graph-up"></i>
-                    Analytics
-                </a>
-                {% if is_admin %}
-                <a class="nav-link" href="/users">
-                    <i class="bi bi-people"></i>
-                    User Management
-                </a>
-                {% endif %}
-                <a class="nav-link" href="/logout">
-                    <i class="bi bi-box-arrow-right"></i>
-                    Logout
-                </a>
+                    style="height: 30px; margin-right: 1rem;">
+            </div>
+            <div class="d-flex align-items-center ms-3">
+                <span class="navbar-brand mb-0">Candidate Tracking System</span>
+            </div>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="bi bi-clipboard-data"></i>
+                            Candidate Management
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/analytics">
+                            <i class="bi bi-bar-chart-line"></i>
+                            Analytics
+                        </a>
+                    </li>
+                    {% if is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/resume-filter">
+                            <i class="bi bi-file-earmark-text"></i>
+                            Resume Filter
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/users">
+                            <i class="bi bi-people"></i>
+                            User Management
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Logout
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
@@ -203,6 +224,27 @@
             </div>
         </div>
 
+        <!-- USER ACTIVITY TABLE - PROMINENT POSITION -->
+        <div class="card mb-4">
+            <div class="card-body p-3">
+                <h5 class="card-title mb-3"><i class="bi bi-people-fill me-2"></i>User Activity</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Candidates Screened</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userActivityBodyTop">
+                            <tr>
+                                <td colspan="2" class="text-center text-muted">Loading user activity...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
         <div class="card mb-4">
             <div class="card-body">
@@ -306,6 +348,38 @@
         </div>
         <!-- ============================================= -->
         <!-- OFFER DETAILS TABLE ENDS HERE                -->
+        <!-- ============================================= -->
+
+        <!-- ============================================= -->
+        <!-- USER ACTIVITY TABLE STARTS HERE              -->
+        <!-- ============================================= -->
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-body p-3">
+                        <h5 class="card-title mb-3">User Activity</h5>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Candidates Screened</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="userActivityBody">
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted">Loading
+                                            user activity...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ============================================= -->
+        <!-- USER ACTIVITY TABLE ENDS HERE                -->
         <!-- ============================================= -->
 
     </div>
@@ -779,6 +853,22 @@
                             positionStatisticsBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No position data available</td></tr>';
                         }
                     }
+
+                    // USER ACTIVITY - Populate both top and bottom tables
+                    const userActivityTables = ['userActivityBodyTop', 'userActivityBody'];
+                    userActivityTables.forEach(tableId => {
+                        const tableBody = document.getElementById(tableId);
+                        if (tableBody && data.user_activity && data.user_activity.length > 0) {
+                            tableBody.innerHTML = data.user_activity.map(item => `
+                                <tr>
+                                    <td>${item.username}</td>
+                                    <td class="text-center">${item.candidates_screened}</td>
+                                </tr>
+                            `).join('');
+                        } else if (tableBody) {
+                            tableBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No user activity data available</td></tr>';
+                        }
+                    });
                 })
                 .catch(error => console.error('Error fetching analytics data:', error));
         }

@@ -927,6 +927,33 @@ function fetchData() {
             } else {
                 populateTable(data, is_admin);
             }
+
+            // Check for highlight candidate from Resume Filter
+            const highlightInfo = sessionStorage.getItem('highlightCandidate');
+            if (highlightInfo) {
+                try {
+                    const { index, name } = JSON.parse(highlightInfo);
+                    // Clear the highlight info so it doesn't open again on refresh
+                    sessionStorage.removeItem('highlightCandidate');
+
+                    // Find candidate in originalTableData
+                    let candidate = originalTableData[index];
+                    
+                    // Verify candidate name matches (as index might change if data was deleted)
+                    if (!candidate || candidate['Name'] !== name) {
+                        candidate = originalTableData.find(c => c['Name'] === name);
+                    }
+
+                    if (candidate) {
+                        // Small delay to ensure table is populated and modal can open correctly
+                        setTimeout(() => {
+                            showCandidateDetails(candidate);
+                        }, 500);
+                    }
+                } catch (e) {
+                    console.error('Error handling highlightCandidate:', e);
+                }
+            }
         })
         .catch(error => {
             console.error('Error fetching data:', error);

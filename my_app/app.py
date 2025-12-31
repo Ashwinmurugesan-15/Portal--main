@@ -104,7 +104,7 @@ def create_sample_excel():
         'Certifications', 'Referred By',
         'Interview Status', 'Application Status',
         'Initial Screening', 'Round 1 D and T', 'Round 1 Remarks', 'Round 2 D and T', 'Round 2 Remarks',
-        'Offered Position', 'Joining Date', 'Reject Mail Sent', 'Remarks'
+        'Offered Position', 'Joining Date', 'Reject Mail Sent', 'Remarks', 'Screened By'
     ]
     
     # Add headers to the first row
@@ -285,7 +285,7 @@ def save_data(data):
             'Certifications', 'Referred By',
             'Interview Status', 'Application Status','Remarks',
             'Initial Screening', 'Round 1 D and T', 'Round 1 Remarks', 'Round 2 D and T', 'Round 2 Remarks',
-            'Offered Position', 'Joining Date', 'Reject Mail Sent', 
+            'Offered Position', 'Joining Date', 'Reject Mail Sent', 'Screened By',
         ]
         
         # Build ordered headers: Date + desired fields present + any remaining headers
@@ -521,11 +521,6 @@ def index():
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-@app.route('/resume-matcher')
-@login_required
-def resume_matcher_frontend():
-    return render_template('resumeindex.html', is_admin=session.get('is_admin', False))
-
 @app.route('/api/data', methods=['GET'])
 @login_required
 def get_data():
@@ -578,6 +573,13 @@ def update_data(index):
         
         # Check if index is valid
         if 0 <= index < len(data):
+            # Track if screening/remarks fields are being updated
+            screening_fields = ['Initial Screening', 'Remarks', 'Round 1 Remarks', 'Round 2 Remarks']
+            is_screening_update = any(
+                key in screening_fields and update_payload.get(key) 
+                for key in update_payload.keys()
+            )
+            
             # Update the data at the specified index
             for key, value in update_payload.items():
                 # Convert specific fields to appropriate types if necessary
@@ -589,6 +591,11 @@ def update_data(index):
                 else:
                     # Ensure all values are strings or None
                     data[index][key] = str(value) if value is not None else ''
+            
+            # If screening/remarks fields were updated, track the user
+            if is_screening_update:
+                current_user = session.get('username', 'Unknown')
+                data[index]['Screened By'] = current_user
             
             save_data(data)
             return jsonify({"status": "success", "message": "Data updated successfully"})
@@ -630,15 +637,8 @@ def get_analytics_data():
         # Get year parameter from query string
         year_filter = request.args.get('year')
         
-        conn = sqlite3.connect(DATABASE)
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM candidates')
-        rows = cursor.fetchall()
-        conn.close()
-        
-        # Convert to list of dictionaries
-        columns = [description[0] for description in cursor.description]
-        data = [dict(zip(columns, row)) for row in rows]
+        # Load data from Excel file
+        data = load_data()
         
         # Filter data by year if specified
         if year_filter:
@@ -737,6 +737,18 @@ def get_analytics_data():
                     'joining_date': item.get('Joining Date', 'N/A')
                 })
         
+        # User Activity - track users who have added screening/remarks
+        user_activity = defaultdict(lambda: {"candidates_screened": 0})
+        for item in data:
+            screened_by = item.get('Screened By')
+            if screened_by and screened_by.strip():
+                user_activity[screened_by]["candidates_screened"] += 1
+        
+        sorted_user_activity = [
+            {"username": username, "candidates_screened": stats["candidates_screened"]} 
+            for username, stats in sorted(user_activity.items(), key=lambda x: x[1]["candidates_screened"], reverse=True)
+        ]
+        
         return jsonify({
             'total_applicant': total_applicant,
             'total_rejected': total_rejected,
@@ -752,7 +764,8 @@ def get_analytics_data():
             'monthly_statistics': sorted_monthly_stats,
             'hiring_funnel_by_role': sorted_hiring_funnel_by_role,
             'position_statistics': sorted_position_stats,
-            'offer_details': offer_details
+            'offer_details': offer_details,
+            'user_activity': sorted_user_activity
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -985,6 +998,107 @@ def send_rejection_email_api():
             "status": "error",
             "message": str(e)
         }), 500
+
+# Resume Filter Routes (Admin Only)
+@app.route('/resume-filter')
+@admin_required
+def resume_filter_page():
+    """Resume filter page (admin only)"""
+    return render_template('resume_filter.html', is_admin=True)
+
+
+@app.route('/api/resume-filter', methods=['POST'])
+@admin_required
+def filter_resumes():
+    """API endpoint to filter resumes by keyword"""
+    try:
+        data = request.json
+        keyword = data.get('keyword', '').strip().lower()
+        
+        if not keyword:
+            return jsonify({
+                "status": "error",
+                "message": "Keyword is required"
+            }), 400
+        
+        # Split keywords by space or comma and filter out empty strings
+        import re
+        keyword_terms = [t.strip().lower() for t in re.split(r'[,\s]+', keyword) if t.strip()]
+        
+        if not keyword_terms:
+            return jsonify({
+                "status": "error",
+                "message": "Valid keywords are required"
+            }), 400
+        
+        # Load candidate data
+        candidates = load_data()
+        results = []
+        
+        for index, candidate in enumerate(candidates):
+            resume_filename = candidate.get('Resume', '')
+            
+            # Skip if no resume file
+            if not resume_filename or resume_filename.startswith('http'):
+                continue
+            
+            # Build full path to resume
+            resume_path = os.path.join(app.config['UPLOAD_FOLDER'], resume_filename)
+            
+            # Skip if file doesn't exist
+            if not os.path.exists(resume_path):
+                continue
+            
+            # Extract text from PDF
+            try:
+                reader = PdfReader(resume_path)
+                resume_text = ""
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        resume_text += page_text.lower()
+                
+                # Count occurrences for each term and sum them up
+                total_matches = 0
+                term_matches = {}
+                for term in keyword_terms:
+                    count = resume_text.count(term)
+                    if count > 0:
+                        total_matches += count
+                        term_matches[term] = count
+                
+                if total_matches > 0:
+                    results.append({
+                        'index': index,
+                        'name': candidate.get('Name', 'N/A'),
+                        'email': candidate.get('Email ID', 'N/A'),
+                        'position': candidate.get('Interested Position', 'N/A'),
+                        'experience': candidate.get('Total Years of Experience', 'N/A'),
+                        'match_score': total_matches,
+                        'term_matches': term_matches,
+                        'resume': resume_filename
+                    })
+            except Exception as pdf_error:
+                logger.warning(f"Error reading PDF {resume_filename}: {pdf_error}")
+                continue
+        
+        # Sort by match score (highest first)
+        results.sort(key=lambda x: x['match_score'], reverse=True)
+        
+        return jsonify({
+            "status": "success",
+            "keyword": keyword,
+            "total_matches": len(results),
+            "results": results
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in resume filter: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
 
 if __name__ == '__main__':
     init_user_db()
