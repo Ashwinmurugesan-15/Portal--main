@@ -14,6 +14,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pypdf import PdfReader
+import requests
 
 from jinja2 import FileSystemLoader, ChoiceLoader
 from config import DevelopmentConfig, ProductionConfig
@@ -79,6 +80,54 @@ if env == "production":
         raise RuntimeError("ADMIN_USERNAME and ADMIN_PASSWORD must be set in production")
     if not EMAIL_CONFIG.get("SENDER_EMAIL") or not EMAIL_CONFIG.get("SENDER_PASSWORD"):
         raise RuntimeError("Email sender credentials must be set in production")
+
+
+# ============================================
+# Token Manager for Guhatek API Integration
+# ============================================
+class TokenManager:
+    """Manages API token with automatic refresh every 10 minutes"""
+    
+    def __init__(self):
+        self.token = None
+        self.token_expiry = None
+        self.api_base_url = "https://api-dev.guhatek.org"
+        self.api_key = "guhatek-job-applicant"
+    
+    def get_token(self):
+        """Get current token or fetch new one if expired"""
+        current_time = time.time()
+        
+        # Check if token exists and is still valid (refresh 30 seconds before expiry)
+        if self.token and self.token_expiry and current_time < (self.token_expiry - 30):
+            logger.info("Using cached token")
+            return self.token
+        
+        # Fetch new token
+        logger.info("Fetching new token from Guhatek API")
+        try:
+            response = requests.get(
+                f"{self.api_base_url}/api/token",
+                headers={"x-api-key": self.api_key},
+                timeout=10
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            self.token = data.get("token")
+            
+            # Set expiry to 10 minutes from now (600 seconds)
+            self.token_expiry = current_time + 600
+            
+            logger.info(f"New token fetched, expires in 10 minutes")
+            return self.token
+            
+        except Exception as e:
+            logger.error(f"Error fetching token: {str(e)}")
+            raise
+
+# Initialize global token manager
+token_manager = TokenManager()
 
 
 @app.context_processor
@@ -524,9 +573,91 @@ def uploaded_file(filename):
 @app.route('/api/data', methods=['GET'])
 @login_required
 def get_data():
-    data = load_data()
-    is_admin_user = is_admin()  # Check if the user is an admin
-    return jsonify({"data": data, "is_admin": is_admin_user})
+    """Fetch data from Guhatek API (replaces Excel as primary source)"""
+    try:
+        logger.info("=== Fetching applicants from Guhatek API ===")
+        
+        # Get token from token manager
+        token = token_manager.get_token()
+        
+        # Call applications API
+        response = requests.get(
+            f"{token_manager.api_base_url}/api/applications",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            },
+            timeout=15
+        )
+        response.raise_for_status()
+        
+        api_data = response.json()
+        raw_applicants = api_data.get("data", [])
+        
+        logger.info(f"Received {len(raw_applicants)} applicants from API")
+        
+        # Filter and transform data - only include complete records
+        valid_applicants = []
+        for applicant in raw_applicants:
+            # Check if critical fields have values
+            has_name = applicant.get("full_name") and str(applicant.get("full_name")).strip()
+            has_email = applicant.get("email") and str(applicant.get("email")).strip()
+            has_contact = applicant.get("contact_number") and str(applicant.get("contact_number")).strip()
+            
+            if has_name and has_email and has_contact:
+                # Transform API response to match frontend format
+                transformed = {
+                    "Date": applicant.get("submitted_at", ""),
+                    "Name": applicant.get("full_name", ""),
+                    "Email ID": applicant.get("email", ""),
+                    "Contact Number": applicant.get("contact_number", ""),
+                    "LinkedIn Profile": applicant.get("linkedin_profile", ""),
+                    "Resume": applicant.get("resume_url", ""),
+                    "Interested Position": applicant.get("interested_position", ""),
+                    "Current Role": applicant.get("currentrole", ""),
+                    "Current Organization": applicant.get("current_organisation", ""),
+                    "Total Years of Experience": str(applicant.get("total_experience", "")) if applicant.get("total_experience") else "",
+                    "Current Location": applicant.get("current_location", ""),
+                    "Location Preference": applicant.get("location_preference", ""),
+                    "Current CTC per Annum": str(applicant.get("current_ctc", "")) if applicant.get("current_ctc") else "",
+                    "Expected CTC per Annum": str(applicant.get("expected_ctc", "")) if applicant.get("expected_ctc") else "",
+                    "Notice Period": str(applicant.get("notice_period", "")) if applicant.get("notice_period") else "",
+                    "In Notice": "Yes" if applicant.get("currently_noticeperiod") else "No",
+                    "Immediate Joiner": "Yes" if applicant.get("immediate_joiner") else "No",
+                    "Offers in Hand": "Yes" if applicant.get("other_offer_in_hand") else "No",
+                    "Offered CTC": str(applicant.get("offered_ctc", "")) if applicant.get("offered_ctc") else "",
+                    "Certifications": applicant.get("certifications", "") or "",
+                    "Referred By": applicant.get("referred_by", "") or "",
+                    "Interview Status": "",
+                    "Application Status": "",
+                    "Initial Screening": "",
+                    "Round 1 D and T": "",
+                    "Round 1 Remarks": "",
+                    "Round 2 D and T": "",
+                    "Round 2 Remarks": "",
+                    "Offered Position": "",
+                    "Joining Date": "",
+                    "Reject Mail Sent": "No",
+                    "Remarks": applicant.get("additional_info", "") or "",
+                    "Screened By": ""
+                }
+                valid_applicants.append(transformed)
+        
+        logger.info(f"Returning {len(valid_applicants)} valid applicants")
+        
+        is_admin_user = is_admin()
+        return jsonify({"data": valid_applicants, "is_admin": is_admin_user})
+        
+    except requests.exceptions.Timeout:
+        logger.error("Guhatek API timeout - falling back to Excel")
+        # Fallback to Excel if API fails
+        data = load_data()
+        return jsonify({"data": data, "is_admin": is_admin()})
+    except Exception as e:
+        logger.error(f"Error fetching from API: {str(e)} - falling back to Excel")
+        # Fallback to Excel if API fails
+        data = load_data()
+        return jsonify({"data": data, "is_admin": is_admin()})
 
 @app.route('/api/data', methods=['POST'])
 @login_required
@@ -623,6 +754,119 @@ def delete_data(index):
             return jsonify({"status": "error", "message": f"No record found at index {index}"}), 404
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/applicants', methods=['GET'])
+@login_required
+def get_applicants_from_api():
+    """Fetch applicants from Guhatek API and filter out null records"""
+    try:
+        logger.info("=== Starting API applicants fetch ===")
+        
+        # Get token from token manager
+        logger.info("Getting token from token manager...")
+        token = token_manager.get_token()
+        logger.info(f"Token obtained: {token[:20]}..." if token else "No token!")
+        
+        # Call applications API
+        logger.info("Fetching applicants from Guhatek API")
+        response = requests.get(
+            f"{token_manager.api_base_url}/api/applications",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            },
+            timeout=15  # Increased timeout for slower dev cluster
+        )
+        logger.info(f"API response status: {response.status_code}")
+        response.raise_for_status()
+        
+        data = response.json()
+        raw_applicants = data.get("data", [])
+        
+        logger.info(f"Received {len(raw_applicants)} applicants from API")
+        
+        # Filter out records with null values for critical fields
+        # Only include records that have AT LEAST: full_name, email, and contact_number
+        valid_applicants = []
+        for applicant in raw_applicants:
+            # Check if critical fields have values (not null and not empty string)
+            has_name = applicant.get("full_name") and str(applicant.get("full_name")).strip()
+            has_email = applicant.get("email") and str(applicant.get("email")).strip()
+            has_contact = applicant.get("contact_number") and str(applicant.get("contact_number")).strip()
+            
+            # Only include if all critical fields have values
+            if has_name and has_email and has_contact:
+                # Transform API response to match our Excel format
+                transformed_applicant = {
+                    "Date": applicant.get("submitted_at", ""),
+                    "Name": applicant.get("full_name", ""),
+                    "Email ID": applicant.get("email", ""),
+                    "Contact Number": applicant.get("contact_number", ""),
+                    "LinkedIn Profile": applicant.get("linkedin_profile", ""),
+                    "Resume": applicant.get("resume_url", ""),
+                    "Interested Position": applicant.get("interested_position", ""),
+                    "Current Role": applicant.get("currentrole", ""),
+                    "Current Organization": applicant.get("current_organisation", ""),
+                    "Total Years of Experience": str(applicant.get("total_experience", "")) if applicant.get("total_experience") else "",
+                    "Current Location": applicant.get("current_location", ""),
+                    "Location Preference": applicant.get("location_preference", ""),
+                    "Current CTC per Annum": str(applicant.get("current_ctc", "")) if applicant.get("current_ctc") else "",
+                    "Expected CTC per Annum": str(applicant.get("expected_ctc", "")) if applicant.get("expected_ctc") else "",
+                    "Notice Period": str(applicant.get("notice_period", "")) if applicant.get("notice_period") else "",
+                    "In Notice": "Yes" if applicant.get("currently_noticeperiod") else "No",
+                    "Immediate Joiner": "Yes" if applicant.get("immediate_joiner") else "No",
+                    "Offers in Hand": "Yes" if applicant.get("other_offer_in_hand") else "No",
+                    "Offered CTC": str(applicant.get("offered_ctc", "")) if applicant.get("offered_ctc") else "",
+                    "Certifications": applicant.get("certifications", ""),
+                    "Referred By": applicant.get("referred_by", ""),
+                    "Interview Status": "",
+                    "Application Status": "",
+                    "Initial Screening": "",
+                    "Round 1 D and T": "",
+                    "Round 1 Remarks": "",
+                    "Round 2 D and T": "",
+                    "Round 2 Remarks": "",
+                    "Offered Position": "",
+                    "Joining Date": "",
+                    "Reject Mail Sent": "No",
+                    "Remarks": applicant.get("additional_info", ""),
+                    "Screened By": ""
+                }
+                valid_applicants.append(transformed_applicant)
+        
+        logger.info(f"Filtered to {len(valid_applicants)} valid applicants (excluding null records)")
+        logger.info("=== API fetch completed successfully ===")
+        
+        return jsonify({
+            "status": "success",
+            "data": valid_applicants,
+            "total_count": len(raw_applicants),
+            "valid_count": len(valid_applicants),
+            "is_admin": is_admin()
+        })
+        
+    except requests.exceptions.Timeout:
+        logger.error("API request timed out")
+        return jsonify({
+            "status": "error",
+            "message": "Request timed out. The dev server is slow, please try again."
+        }), 504
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching applicants from API: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to fetch applicants: {str(e)}"
+        }), 500
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "status": "error",
+            "message": f"An unexpected error occurred: {str(e)}"
+        }), 500
 
 @app.route('/analytics')
 @admin_required
@@ -737,17 +981,71 @@ def get_analytics_data():
                     'joining_date': item.get('Joining Date', 'N/A')
                 })
         
-        # User Activity - track users who have added screening/remarks
+        # User Activity - track users who have added screening/remarks (with monthly breakdown)
         user_activity = defaultdict(lambda: {"candidates_screened": 0})
+        user_activity_by_month = defaultdict(lambda: defaultdict(lambda: {"candidates_screened": 0}))
+        
+        # Get current month for new screenings
+        current_month = datetime.now().strftime('%b %Y')  # e.g., 'Jan 2026'
+        
         for item in data:
             screened_by = item.get('Screened By')
             if screened_by and screened_by.strip():
                 user_activity[screened_by]["candidates_screened"] += 1
+                
+                # Get date for monthly breakdown - use screening date if available, otherwise use application date
+                # Priority: Screening Date > Initial Screening date parsing > Date > Date of Application
+                date_str = None
+                
+                # Check for screening-related date fields
+                initial_screening = item.get('Initial Screening')
+                if initial_screening and initial_screening.strip():
+                    # If there's initial screening content, try to extract date or use application date
+                    date_str = item.get('Date') or item.get('Date of Application')
+                else:
+                    date_str = item.get('Date') or item.get('Date of Application')
+                
+                month_year = current_month  # Default to current month
+                
+                if date_str:
+                    try:
+                        date_str = str(date_str).strip()
+                        # Try multiple date formats
+                        if 'T' in date_str:
+                            # ISO format from API: 2025-12-23T00:00:00.000Z
+                            date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                        elif '/' in date_str:
+                            # Excel format: M/D/YYYY or MM/DD/YYYY
+                            date_obj = datetime.strptime(date_str.split(' ')[0], '%m/%d/%Y')
+                        elif '-' in date_str:
+                            # ISO date: YYYY-MM-DD
+                            if ' ' in date_str:
+                                date_obj = datetime.strptime(date_str.split(' ')[0], '%Y-%m-%d')
+                            else:
+                                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                        else:
+                            date_obj = None
+                        
+                        if date_obj:
+                            month_year = date_obj.strftime('%b %Y')
+                    except (ValueError, TypeError) as e:
+                        logger.debug(f"Date parsing error for '{date_str}': {e}")
+                        month_year = current_month  # Fallback to current month
+                
+                user_activity_by_month[month_year][screened_by]["candidates_screened"] += 1
         
         sorted_user_activity = [
             {"username": username, "candidates_screened": stats["candidates_screened"]} 
             for username, stats in sorted(user_activity.items(), key=lambda x: x[1]["candidates_screened"], reverse=True)
         ]
+        
+        # Format monthly user activity
+        monthly_user_activity = {}
+        for month_year, users in user_activity_by_month.items():
+            monthly_user_activity[month_year] = [
+                {"username": username, "candidates_screened": stats["candidates_screened"]}
+                for username, stats in sorted(users.items(), key=lambda x: x[1]["candidates_screened"], reverse=True)
+            ]
         
         return jsonify({
             'total_applicant': total_applicant,
@@ -765,7 +1063,8 @@ def get_analytics_data():
             'hiring_funnel_by_role': sorted_hiring_funnel_by_role,
             'position_statistics': sorted_position_stats,
             'offer_details': offer_details,
-            'user_activity': sorted_user_activity
+            'user_activity': sorted_user_activity,
+            'monthly_user_activity': monthly_user_activity
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

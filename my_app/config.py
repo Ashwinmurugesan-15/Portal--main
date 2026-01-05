@@ -18,10 +18,8 @@ class BaseConfig:
     ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "")
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
     API_BASE_URL = os.getenv("API_BASE_URL", "")
-    RESUME_API_BASE_URL = os.getenv("RESUME_API_BASE_URL", "")
     API_CONFIG = {
         "BASE_URL": API_BASE_URL,
-        "RESUME_BASE_URL": RESUME_API_BASE_URL,
     }
     API_ALLOWED_ORIGINS = os.getenv("API_ALLOWED_ORIGINS", "*")
     DEBUG = False
@@ -34,10 +32,8 @@ class DevelopmentConfig(BaseConfig):
     USER_DB = os.getenv("DEV_USER_DB", BaseConfig.USER_DB)
     DATABASE = os.getenv("DEV_DATABASE", BaseConfig.DATABASE)
     API_BASE_URL = os.getenv("DEV_API_BASE_URL", BaseConfig.API_BASE_URL)
-    RESUME_API_BASE_URL = os.getenv("DEV_RESUME_API_BASE_URL", BaseConfig.RESUME_API_BASE_URL)
     API_CONFIG = {
         "BASE_URL": API_BASE_URL,
-        "RESUME_BASE_URL": RESUME_API_BASE_URL,
     }
     PORT = int(os.getenv("DEV_PORT", BaseConfig.PORT))
 
@@ -48,9 +44,7 @@ class ProductionConfig(BaseConfig):
     USER_DB = os.getenv("PROD_USER_DB", BaseConfig.USER_DB)
     DATABASE = os.getenv("PROD_DATABASE", BaseConfig.DATABASE)
     API_BASE_URL = os.getenv("PROD_API_BASE_URL", BaseConfig.API_BASE_URL)
-    RESUME_API_BASE_URL = os.getenv("PROD_RESUME_API_BASE_URL", BaseConfig.RESUME_API_BASE_URL)
     API_CONFIG = {
         "BASE_URL": API_BASE_URL,
-        "RESUME_BASE_URL": RESUME_API_BASE_URL,
     }
     PORT = int(os.getenv("PROD_PORT", BaseConfig.PORT))

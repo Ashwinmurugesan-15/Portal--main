@@ -30,29 +30,29 @@ function populateYearFilter() {
         let dateStr = candidate['Date'] || candidate['Date of Application'] || candidate['Timestamp'] || candidate['Application Date'];
         if (dateStr) {
             let date;
-                    if (dateStr.includes(' ')) {
-                        dateStr = dateStr.split(' ')[0]; // Take only date part
-                    }
-                    date = new Date(dateStr);
-                    if (!isNaN(date.getTime())) {
-                        years.add(date.getFullYear().toString());
-                    }
-                }
-            });
-
-
-            const sortedYears = Array.from(years).sort((a, b) => parseInt(b) - parseInt(a)); // Sort descending
-
-
-            sortedYears.forEach(year => {
-                const option = document.createElement('option');
-                option.value = year;
-                option.textContent = year;
-                yearFilter.appendChild(option);
-
-            });
-
+            if (dateStr.includes(' ')) {
+                dateStr = dateStr.split(' ')[0]; // Take only date part
+            }
+            date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+                years.add(date.getFullYear().toString());
+            }
         }
+    });
+
+
+    const sortedYears = Array.from(years).sort((a, b) => parseInt(b) - parseInt(a)); // Sort descending
+
+
+    sortedYears.forEach(year => {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        yearFilter.appendChild(option);
+
+    });
+
+}
 
 function applyYearFilter() {
     const yearFilter = document.getElementById('yearFilter');
@@ -91,7 +91,7 @@ const FIELD_ORDER = [
     'Current Location', 'Location Preference', 'Current CTC per Annum', 'Expected CTC per Annum',
     'Notice Period', 'In Notice', 'Immediate Joiner', 'Offers in Hand', 'Offered CTC',
     'Certifications', 'Referred By',
-    'Interview Status', 'Application Status','Remarks',
+    'Interview Status', 'Application Status', 'Remarks',
     'Initial Screening', 'Round 1 D and T', 'Round 1 Remarks', 'Round 2 D and T', 'Round 2 Remarks',
     'Offered Position', 'Joining Date', 'Reject Mail Sent'
 ];
@@ -938,7 +938,7 @@ function fetchData() {
 
                     // Find candidate in originalTableData
                     let candidate = originalTableData[index];
-                    
+
                     // Verify candidate name matches (as index might change if data was deleted)
                     if (!candidate || candidate['Name'] !== name) {
                         candidate = originalTableData.find(c => c['Name'] === name);
@@ -1186,7 +1186,7 @@ function populateTable(data, isAdmin) {
         // Pagination Logic
         const totalRows = data.length;
         const totalPages = Math.ceil(totalRows / rowsPerPage);
-        
+
         // Ensure currentPage is within bounds
         if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
         if (currentPage < 1) currentPage = 1;
@@ -1198,7 +1198,7 @@ function populateTable(data, isAdmin) {
         // Update pagination info
         const paginationInfo = document.getElementById('paginationInfo');
         if (paginationInfo) {
-            paginationInfo.textContent = totalRows > 0 
+            paginationInfo.textContent = totalRows > 0
                 ? `Showing ${startIndex + 1} to ${endIndex} of ${totalRows} entries`
                 : 'Showing 0 to 0 of 0 entries';
         }
@@ -1228,28 +1228,28 @@ function populateTable(data, isAdmin) {
 
             // Add click event to show candidate details
             tr.addEventListener('click', (e) => {
-            // Don't trigger if clicking on action buttons, dropdowns, links, or remarks triggers
+                // Don't trigger if clicking on action buttons, dropdowns, links, or remarks triggers
 
-            const clickedCell = e.target.closest('td');
-            const columnName = clickedCell ? clickedCell.getAttribute('data-column') : null;
+                const clickedCell = e.target.closest('td');
+                const columnName = clickedCell ? clickedCell.getAttribute('data-column') : null;
 
-            if (columnName === 'Round 1 Remarks') {
-                const recordIndex = getRecordIndex(row);
-                showRound1RemarksModal(row, recordIndex);
-            } else if (columnName === 'Round 2 Remarks') {
-                const recordIndex = getRecordIndex(row);
-                showRound2RemarksModal(row, recordIndex);
-            } else if (columnName === 'Remarks') { // Handle general Remarks column
-                const recordIndex = getRecordIndex(row);
-                showRemarksDetail(row[columnName] || '', recordIndex, isAdmin);
-            } else if (columnName === 'Initial Screening') { // Handle Initial Screening column
-                const recordIndex = getRecordIndex(row);
-                showInitialScreeningModal(row, recordIndex);
-            } else if (!e.target.closest('button') && !e.target.closest('select') && !e.target.closest('a') && !e.target.closest('.remarks-trigger') && !e.target.closest('.general-remarks-trigger') && !e.target.closest('.initial-screening-trigger')) {
-                const recordIndex = getRecordIndex(row);
-                showCandidateDetails(row, recordIndex, isAdmin);
-            }
-        });
+                if (columnName === 'Round 1 Remarks') {
+                    const recordIndex = getRecordIndex(row);
+                    showRound1RemarksModal(row, recordIndex);
+                } else if (columnName === 'Round 2 Remarks') {
+                    const recordIndex = getRecordIndex(row);
+                    showRound2RemarksModal(row, recordIndex);
+                } else if (columnName === 'Remarks') { // Handle general Remarks column
+                    const recordIndex = getRecordIndex(row);
+                    showRemarksDetail(row[columnName] || '', recordIndex, isAdmin);
+                } else if (columnName === 'Initial Screening') { // Handle Initial Screening column
+                    const recordIndex = getRecordIndex(row);
+                    showInitialScreeningModal(row, recordIndex);
+                } else if (!e.target.closest('button') && !e.target.closest('select') && !e.target.closest('a') && !e.target.closest('.remarks-trigger') && !e.target.closest('.general-remarks-trigger') && !e.target.closest('.initial-screening-trigger')) {
+                    const recordIndex = getRecordIndex(row);
+                    showCandidateDetails(row, recordIndex, isAdmin);
+                }
+            });
 
             tableColumns.forEach((column, colIndex) => {
                 const td = document.createElement('td');
@@ -1818,7 +1818,7 @@ function renderPagination(totalPages) {
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
+
     if (endPage - startPage + 1 < maxVisiblePages) {
         startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
@@ -2001,22 +2001,22 @@ function populateFormFields(formId, data = null) {
                 input.className = 'form-control';
                 input.id = field.replace(/\s+/g, '');
                 input.name = field.replace(/\s+/g, '');
-                
+
                 // If editing and has existing resume, show link
-            if (data && data[field]) {
-                const small = document.createElement('small');
-                small.className = 'text-muted d-block mt-1';
-                const resumeValue = data[field].toString().trim();
-                const linkHref = resumeValue.startsWith('http') ? resumeValue : `/uploads/${resumeValue}`;
-                small.innerHTML = `Current file: <a href="${linkHref}" target="_blank">View Resume</a>`;
-                // Note: input.parentNode might not exist yet if we are just creating it
-                // So we use a small timeout to append it after input is added to DOM
-                setTimeout(() => {
-                    if (input.parentNode) {
-                        input.parentNode.appendChild(small);
-                    }
-                }, 0);
-            }
+                if (data && data[field]) {
+                    const small = document.createElement('small');
+                    small.className = 'text-muted d-block mt-1';
+                    const resumeValue = data[field].toString().trim();
+                    const linkHref = resumeValue.startsWith('http') ? resumeValue : `/uploads/${resumeValue}`;
+                    small.innerHTML = `Current file: <a href="${linkHref}" target="_blank">View Resume</a>`;
+                    // Note: input.parentNode might not exist yet if we are just creating it
+                    // So we use a small timeout to append it after input is added to DOM
+                    setTimeout(() => {
+                        if (input.parentNode) {
+                            input.parentNode.appendChild(small);
+                        }
+                    }, 0);
+                }
             } else if (field === 'LinkedIn Profile') {
                 input = document.createElement('input');
                 input.type = 'url';
@@ -2172,7 +2172,7 @@ function openEditModal(index, isAdmin) {
                 input.style.backgroundColor = '#e9ecef';
                 input.style.cursor = 'not-allowed';
             }
-            
+
             // If has existing resume, show link
             if (record[column]) {
                 const small = document.createElement('small');
@@ -2344,7 +2344,7 @@ function updateInitialScreeningTableCell(candidateIndex, newValue) {
 // Function to save new record
 function saveNewRecord() {
     const formData = new FormData(document.getElementById('addDataForm'));
-    
+
     // Remove empty file if not selected
     const resumeFile = formData.get('Resume');
     if (resumeFile && resumeFile.size === 0) {
@@ -2379,7 +2379,7 @@ function saveNewRecord() {
 function updateRecord() {
     const index = document.getElementById('editRecordIndex').value;
     const formData = new FormData(document.getElementById('editDataForm'));
-    
+
     // Remove empty file if not selected
     const resumeFile = formData.get('Resume');
     if (resumeFile && resumeFile.size === 0) {
@@ -2895,11 +2895,11 @@ function updateMonthlyStats(data) {
     }
 
     // Update key metrics
-            updateKeyMetrics(totals, data);
+    updateKeyMetrics(totals, data);
 
-            // Update position statistics
-            updatePositionStats(data);
-        }
+    // Update position statistics
+    updatePositionStats(data);
+}
 
 
 
@@ -3920,16 +3920,16 @@ function showCandidateDetails(candidate, index, isAdmin) {
         const isStatusField = fieldName === 'Interview Status' || fieldName === 'Application Status';
 
         // Handle status fields (always visible as dropdowns)
-                    if (isStatusField) {
-                        const statusSelect = item.querySelector('select');
-                        if (statusSelect && isEditable) {
-                            statusSelect.addEventListener('change', function() {
-                                if (this.value === 'Offer') {
-                                    showOfferDetailsModal(candidate, index);
-                                }
-                            });
-                        }
-                    } else {
+        if (isStatusField) {
+            const statusSelect = item.querySelector('select');
+            if (statusSelect && isEditable) {
+                statusSelect.addEventListener('change', function () {
+                    if (this.value === 'Offer') {
+                        showOfferDetailsModal(candidate, index);
+                    }
+                });
+            }
+        } else {
             // Handle other fields - editing only through the main Edit/Save buttons
             // All editing is now controlled by the main Edit/Save buttons only
             // Removed the direct click listener that was triggering edit mode on any click
@@ -4205,44 +4205,44 @@ function saveInitialScreeningFromModal(candidateIndex) {
     const initialScreeningTextArea = document.getElementById('initialScreeningTextArea');
     const newValue = initialScreeningTextArea ? initialScreeningTextArea.value : '';
 
-        const updatedData = { 'Initial Screening': newValue };
+    const updatedData = { 'Initial Screening': newValue };
 
-        fetch(API_BASE_URL + `/api/data/${candidateIndex}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(updatedData),
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showToast('Initial Screening updated successfully!', 'success');
-                    // Update the table data locally
-                    if (tableData[candidateIndex]) {
-                        tableData[candidateIndex]['Initial Screening'] = newValue;
-                    }
-                    // Also update original data
-                    if (originalTableData[candidateIndex]) {
-                        originalTableData[candidateIndex]['Initial Screening'] = newValue;
-                    }
-
-                    // Update the table cell directly
-                    updateInitialScreeningTableCell(candidateIndex, newValue);
-
-                    const modalElement = document.getElementById('initialScreeningDetailModal');
-                    const modal = bootstrap.Modal.getInstance(modalElement);
-                    if (modal) {
-                        modal.hide();
-                    }
-                } else {
-                    showToast(`Error updating initial screening: ${data.message}`, 'danger');
+    fetch(API_BASE_URL + `/api/data/${candidateIndex}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedData),
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('Initial Screening updated successfully!', 'success');
+                // Update the table data locally
+                if (tableData[candidateIndex]) {
+                    tableData[candidateIndex]['Initial Screening'] = newValue;
                 }
-            })
-            .catch(error => {
-                console.error('Error saving initial screening:', error);
-                showToast('Error saving initial screening.', 'danger');
-            });
+                // Also update original data
+                if (originalTableData[candidateIndex]) {
+                    originalTableData[candidateIndex]['Initial Screening'] = newValue;
+                }
+
+                // Update the table cell directly
+                updateInitialScreeningTableCell(candidateIndex, newValue);
+
+                const modalElement = document.getElementById('initialScreeningDetailModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                }
+            } else {
+                showToast(`Error updating initial screening: ${data.message}`, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving initial screening:', error);
+            showToast('Error saving initial screening.', 'danger');
+        });
 }
 
 // Function to show Round 1 D&T detail in popup modal
@@ -4545,18 +4545,18 @@ function saveOfferedCTC(index, newCTC) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedData),
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            showToast('Offered CTC updated successfully!', 'success');
-        } else {
-            showToast(`Error updating Offered CTC: ${data.message}`, 'danger');
-        }
-    })
-    .catch(error => {
-        console.error('Error saving Offered CTC:', error);
-        showToast('Error saving Offered CTC.', 'danger');
-    });
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('Offered CTC updated successfully!', 'success');
+            } else {
+                showToast(`Error updating Offered CTC: ${data.message}`, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving Offered CTC:', error);
+            showToast('Error saving Offered CTC.', 'danger');
+        });
 }
 
 // Function to save Offered Position
