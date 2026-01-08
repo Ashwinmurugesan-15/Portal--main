@@ -130,6 +130,142 @@ class TokenManager:
 token_manager = TokenManager()
 
 
+# ============================================
+# Field Mapping: Portal -> API (camelCase)
+# ============================================
+PORTAL_TO_API_FIELD_MAP = {
+    # Screening and Interview fields (editable by portal users)
+    "Initial Screening": "initialScreening",
+    "Round 1 D and T": "round1Dt",
+    "Round 1 Remarks": "round1Feedback",
+    "Round 2 D and T": "round2Dt",
+    "Round 2 Remarks": "round2Feedback",
+    "Offered Position": "offeredPosition",
+    "Joining Date": "joiningDate",
+    "Reject Mail Sent": "rejectMailSent",
+    "Screened By": "screenedBy",
+    "Interview Status": "interviewStatus",
+    "Application Status": "applicationStatus",
+    "Remarks": "additionalInfo",
+    # Basic fields (usually not edited via portal, but mapped for completeness)
+    "Name": "fullName",
+    "Email ID": "email",
+    "Contact Number": "contactNumber",
+    "LinkedIn Profile": "linkedinProfile",
+    "Interested Position": "interestedPosition",
+    "Current Role": "currentRole",
+    "Current Organization": "currentOrganization",
+    "Total Years of Experience": "totalExperience",
+    "Current Location": "currentLocation",
+    "Location Preference": "locationPreference",
+    "Current CTC per Annum": "currentCTC",
+    "Expected CTC per Annum": "expectedCTC",
+    "Notice Period": "noticePeriod",
+    "In Notice": "currentlyInNotice",
+    "Immediate Joiner": "immediateJoiner",
+    "Offers in Hand": "otherOffersInHand",
+    "Offered CTC": "offeredCtc",
+    "Certifications": "certifications",
+    "Referred By": "referredBy",
+}
+
+
+def convert_portal_to_api_payload(portal_data):
+    """
+    Convert portal field names to API camelCase format.
+    Also handles value conversions (e.g., Yes/No -> boolean).
+    """
+    api_payload = {}
+    
+    for portal_key, value in portal_data.items():
+        # Skip non-mappable fields
+        if portal_key not in PORTAL_TO_API_FIELD_MAP:
+            continue
+        
+        api_key = PORTAL_TO_API_FIELD_MAP[portal_key]
+        
+        # Handle boolean conversions
+        if portal_key in ["In Notice", "Immediate Joiner", "Offers in Hand"]:
+            api_payload[api_key] = value.lower() == "yes" if value else False
+        elif portal_key == "Reject Mail Sent":
+            api_payload[api_key] = value.lower() == "yes" if value else False
+        # Handle numeric conversions
+        elif portal_key in ["Current CTC per Annum", "Expected CTC per Annum", "Offered CTC", "Total Years of Experience"]:
+            if value:
+                try:
+                    api_payload[api_key] = int(value)
+                except (ValueError, TypeError):
+                    api_payload[api_key] = value
+            else:
+                api_payload[api_key] = None
+        else:
+            # String fields
+            api_payload[api_key] = value if value else None
+    
+    return api_payload
+
+
+def update_applicant_via_api(applicant_id, portal_data):
+    """
+    Update an applicant's data via the Guhatek PATCH API.
+    
+    Args:
+        applicant_id: The UUID of the applicant from the API
+        portal_data: Dictionary of portal field names and values to update
+    
+    Returns:
+        tuple: (success: bool, message: str, updated_data: dict or None)
+    """
+    try:
+        if not applicant_id:
+            logger.warning("No applicant ID provided for API update")
+            return False, "No applicant ID available for API update", None
+        
+        # Convert portal fields to API format
+        api_payload = convert_portal_to_api_payload(portal_data)
+        
+        if not api_payload:
+            logger.info("No mappable fields to update via API")
+            return True, "No API-mappable fields to update", None
+        
+        logger.info(f"Updating applicant {applicant_id} via API with payload: {api_payload}")
+        
+        # Get token
+        token = token_manager.get_token()
+        
+        # Call PATCH endpoint
+        response = requests.patch(
+            f"{token_manager.api_base_url}/api/applications/{applicant_id}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            },
+            json=api_payload,
+            timeout=15
+        )
+        
+        response.raise_for_status()
+        result = response.json()
+        
+        if result.get("success"):
+            logger.info(f"Successfully updated applicant {applicant_id} via API")
+            return True, "Applicant updated via API", result.get("updated")
+        else:
+            logger.warning(f"API returned success=false for applicant {applicant_id}")
+            return False, "API update failed", None
+            
+    except requests.exceptions.Timeout:
+        logger.error(f"API timeout while updating applicant {applicant_id}")
+        return False, "API request timed out", None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"API error updating applicant {applicant_id}: {str(e)}")
+        return False, f"API error: {str(e)}", None
+    except Exception as e:
+        logger.error(f"Unexpected error updating applicant {applicant_id}: {str(e)}")
+        return False, f"Unexpected error: {str(e)}", None
+
+
+
 @app.context_processor
 def inject_app_config():
     return {"APP_CONFIG": app.config}
@@ -606,7 +742,9 @@ def get_data():
             
             if has_name and has_email and has_contact:
                 # Transform API response to match frontend format
+                # IMPORTANT: Include the API 'id' for PATCH updates
                 transformed = {
+                    "_api_id": applicant.get("id", ""),  # Store API ID for updates
                     "Date": applicant.get("submitted_at", ""),
                     "Name": applicant.get("full_name", ""),
                     "Email ID": applicant.get("email", ""),
@@ -628,18 +766,18 @@ def get_data():
                     "Offered CTC": str(applicant.get("offered_ctc", "")) if applicant.get("offered_ctc") else "",
                     "Certifications": applicant.get("certifications", "") or "",
                     "Referred By": applicant.get("referred_by", "") or "",
-                    "Interview Status": "",
-                    "Application Status": "",
-                    "Initial Screening": "",
-                    "Round 1 D and T": "",
-                    "Round 1 Remarks": "",
-                    "Round 2 D and T": "",
-                    "Round 2 Remarks": "",
-                    "Offered Position": "",
-                    "Joining Date": "",
-                    "Reject Mail Sent": "No",
+                    "Interview Status": applicant.get("interview_status", "") or "",
+                    "Application Status": applicant.get("application_status", "") or "",
+                    "Initial Screening": applicant.get("initial_screening", "") or "",
+                    "Round 1 D and T": applicant.get("round1_dt", "") or "",
+                    "Round 1 Remarks": applicant.get("round1_feedback", "") or "",
+                    "Round 2 D and T": applicant.get("round2_dt", "") or "",
+                    "Round 2 Remarks": applicant.get("round2_feedback", "") or "",
+                    "Offered Position": applicant.get("offered_position", "") or "",
+                    "Joining Date": applicant.get("joining_date", "") or "",
+                    "Reject Mail Sent": "Yes" if applicant.get("reject_mail_sent") else "No",
                     "Remarks": applicant.get("additional_info", "") or "",
-                    "Screened By": ""
+                    "Screened By": applicant.get("screened_by", "") or ""
                 }
                 valid_applicants.append(transformed)
         
@@ -686,6 +824,11 @@ def add_data():
 @app.route('/api/data/<int:index>', methods=['PUT'])
 @login_required
 def update_data(index):
+    """
+    Update applicant data. 
+    Primary: Sync to Guhatek API via PATCH if _api_id is available.
+    Secondary: Save to local Excel as backup.
+    """
     try:
         # Handle multipart/form-data (for file uploads) or application/json
         if request.is_json:
@@ -700,17 +843,51 @@ def update_data(index):
                     file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                     update_payload['Resume'] = filename
         
-        data = load_data()
+        # Extract the API ID if provided (for PATCH updates)
+        api_id = update_payload.pop('_api_id', None)
         
-        # Check if index is valid
-        if 0 <= index < len(data):
-            # Track if screening/remarks fields are being updated
-            screening_fields = ['Initial Screening', 'Remarks', 'Round 1 Remarks', 'Round 2 Remarks']
-            is_screening_update = any(
-                key in screening_fields and update_payload.get(key) 
-                for key in update_payload.keys()
-            )
+        logger.info(f"Update request for index {index}, API ID: {api_id}")
+        logger.info(f"Update payload: {update_payload}")
+        
+        # Track if screening/remarks fields are being updated
+        screening_fields = ['Initial Screening', 'Remarks', 'Round 1 Remarks', 'Round 2 Remarks']
+        is_screening_update = any(
+            key in screening_fields and update_payload.get(key) 
+            for key in update_payload.keys()
+        )
+        
+        # If screening fields were updated, add the current user as Screened By
+        if is_screening_update:
+            current_user = session.get('username', 'Unknown')
+            update_payload['Screened By'] = current_user
+        
+        # ==========================================
+        # PRIMARY: Update via Guhatek API (PATCH)
+        # ==========================================
+        api_update_success = False
+        api_message = ""
+        
+        if api_id:
+            api_success, api_msg, updated_data = update_applicant_via_api(api_id, update_payload)
+            api_update_success = api_success
+            api_message = api_msg
             
+            if api_success:
+                logger.info(f"API update successful for applicant {api_id}")
+            else:
+                logger.warning(f"API update failed for applicant {api_id}: {api_msg}")
+        else:
+            logger.info("No API ID provided, skipping API update")
+            api_message = "No API ID available"
+        
+        # ==========================================
+        # SECONDARY: Update local Excel (backup)
+        # ==========================================
+        data = load_data()
+        excel_update_success = False
+        
+        # Check if index is valid for Excel
+        if 0 <= index < len(data):
             # Update the data at the specified index
             for key, value in update_payload.items():
                 # Convert specific fields to appropriate types if necessary
@@ -723,19 +900,47 @@ def update_data(index):
                     # Ensure all values are strings or None
                     data[index][key] = str(value) if value is not None else ''
             
-            # If screening/remarks fields were updated, track the user
-            if is_screening_update:
-                current_user = session.get('username', 'Unknown')
-                data[index]['Screened By'] = current_user
-            
             save_data(data)
-            return jsonify({"status": "success", "message": "Data updated successfully"})
+            excel_update_success = True
+            logger.info(f"Excel update successful for index {index}")
         else:
-            return jsonify({"status": "error", "message": f"No record found at index {index}"}), 404
+            logger.warning(f"Invalid index {index} for Excel update")
+        
+        # ==========================================
+        # Return response based on update status
+        # ==========================================
+        if api_update_success:
+            # API update succeeded (primary success)
+            return jsonify({
+                "status": "success",
+                "message": "Data synced to API and saved locally",
+                "api_synced": True,
+                "api_message": api_message,
+                "excel_saved": excel_update_success
+            })
+        elif excel_update_success:
+            # API failed but Excel succeeded (fallback success)
+            return jsonify({
+                "status": "success",
+                "message": "Data saved locally (API sync pending)",
+                "api_synced": False,
+                "api_message": api_message,
+                "excel_saved": True
+            })
+        else:
+            # Both failed
+            return jsonify({
+                "status": "error",
+                "message": f"No record found at index {index}",
+                "api_synced": False,
+                "api_message": api_message,
+                "excel_saved": False
+            }), 404
+            
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        print(f"Error updating data: {error_trace}")
+        logger.error(f"Error updating data: {error_trace}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/data/<int:index>', methods=['DELETE'])

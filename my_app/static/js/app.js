@@ -10,6 +10,48 @@ let currentPage = 1;
 const rowsPerPage = 50;
 const API_BASE_URL = window.API_BASE_URL || '';
 
+/**
+ * Helper function to update candidate data via API
+ * Automatically includes the _api_id for Guhatek API sync
+ * 
+ * @param {number} candidateIndex - Index of the candidate in tableData
+ * @param {object} updatePayload - Object containing fields to update
+ * @returns {Promise<object>} - API response
+ */
+async function updateCandidateData(candidateIndex, updatePayload) {
+    // Get the candidate's API ID from tableData for API sync
+    const candidate = tableData[candidateIndex];
+    const apiId = candidate ? candidate['_api_id'] : null;
+
+    // Include the API ID in the payload for backend API sync
+    const payloadWithApiId = {
+        ...updatePayload,
+        '_api_id': apiId
+    };
+
+    console.log(`Updating candidate ${candidateIndex} with API ID: ${apiId}`);
+    console.log('Payload:', payloadWithApiId);
+
+    const response = await fetch(API_BASE_URL + `/api/data/${candidateIndex}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payloadWithApiId),
+    });
+
+    const result = await response.json();
+
+    // Log API sync status for debugging
+    if (result.api_synced) {
+        console.log('✅ Data synced to Guhatek API');
+    } else {
+        console.log('⚠️ API sync pending:', result.api_message);
+    }
+
+    return result;
+}
+
 // Global function to populate the year filter
 function populateYearFilter() {
 
@@ -301,17 +343,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
             try {
-                const response = await fetch(API_BASE_URL + `/api/data/${candidateIndex}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(updatedData),
-                });
-
-                const result = await response.json();
+                const result = await updateCandidateData(parseInt(candidateIndex), updatedData);
                 if (result.status === 'success') {
-                    showToast('Offer Details updated successfully!', 'success');
+                    const syncMsg = result.api_synced ? ' (synced to API)' : '';
+                    showToast('Offer Details updated successfully!' + syncMsg, 'success');
                     bootstrap.Modal.getInstance(document.getElementById('offerDetailsModal')).hide();
                     refreshData(); // Refresh table to show updated offer details
                 } else {
@@ -607,17 +642,10 @@ document.addEventListener('DOMContentLoaded', function () {
             tableData[candidateIndex]['Round 1 Remarks'] = JSON.stringify(updatedRemarks); // Store as JSON string
 
             try {
-                const response = await fetch(API_BASE_URL + `/api/data/${candidateIndex}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ 'Round 1 Remarks': JSON.stringify(updatedRemarks) }),
-                });
-
-                const result = await response.json();
+                const result = await updateCandidateData(parseInt(candidateIndex), { 'Round 1 Remarks': JSON.stringify(updatedRemarks) });
                 if (result.status === 'success') {
-                    showToast('Round 1 Remarks updated successfully!', 'success');
+                    const syncMsg = result.api_synced ? ' (synced to API)' : '';
+                    showToast('Round 1 Remarks updated successfully!' + syncMsg, 'success');
                     bootstrap.Modal.getInstance(document.getElementById('round1RemarksModal')).hide();
                     refreshData(); // Refresh table to show updated remarks
                 } else {
@@ -653,17 +681,10 @@ document.addEventListener('DOMContentLoaded', function () {
             tableData[candidateIndex]['Round 2 Remarks'] = JSON.stringify(updatedRemarks); // Store as JSON string
 
             try {
-                const response = await fetch(API_BASE_URL + `/api/data/${candidateIndex}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ 'Round 2 Remarks': JSON.stringify(updatedRemarks) }),
-                });
-
-                const result = await response.json();
+                const result = await updateCandidateData(parseInt(candidateIndex), { 'Round 2 Remarks': JSON.stringify(updatedRemarks) });
                 if (result.status === 'success') {
-                    showToast('Round 2 Remarks updated successfully!', 'success');
+                    const syncMsg = result.api_synced ? ' (synced to API)' : '';
+                    showToast('Round 2 Remarks updated successfully!' + syncMsg, 'success');
                     bootstrap.Modal.getInstance(document.getElementById('round2RemarksModal')).hide();
                     refreshData(); // Refresh table to show updated remarks
                 } else {
@@ -1128,7 +1149,10 @@ function populateTable(data, isAdmin) {
     let columnsToShow = isAdmin ? FIELD_ORDER : ['Date', 'Name', 'Email ID', 'Interested Position', 'Current Role', 'Current Organization', 'Current Location', 'Total Years of Experience', 'Resume', 'Interview Status', 'Application Status', 'Remarks', 'Initial Screening', 'Round 1 D and T', 'Round 1 Remarks', 'Round 2 D and T', 'Round 2 Remarks'];
 
     if (data && data.length > 0) {
-        const availableColumns = Object.keys(data[0]).filter(column => column !== '_originalIndex');
+        // Filter out internal fields that should not be displayed
+        const availableColumns = Object.keys(data[0]).filter(column =>
+            column !== '_originalIndex' && column !== '_api_id'
+        );
         const ordered = columnsToShow.filter(c => availableColumns.includes(c));
         const remaining = availableColumns.filter(c => !ordered.includes(c));
 
@@ -1850,72 +1874,79 @@ function renderPagination(totalPages) {
 }
 
 // Function to update record status from the table
-function updateRecordStatus(index, column, newStatus, rowElement = null, oldStatus = null, statusColumn = null) {
+async function updateRecordStatus(index, column, newStatus, rowElement = null, oldStatus = null, statusColumn = null) {
     const record = tableData[index];
-    const updatedRecord = { ...record, [column]: newStatus };
 
-    fetch(API_BASE_URL + `/api/data/${index}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedRecord),
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                showNotification('Status updated successfully!', 'success');
-                tableData[index][column] = newStatus; // Update local data to avoid full refresh
-            } else {
-                showNotification(data.message || 'Failed to update status.', 'error');
-                // Revert cell color if update failed and we have the cell element
-                if (rowElement && statusColumn === 'Application Status' && oldStatus !== null) {
-                    // Find the Application Status cell and select element
-                    const statusCell = rowElement.querySelector("td[data-column='Application Status']");
-                    if (statusCell) {
-                        const selectElement = statusCell.querySelector('select');
-                        if (selectElement) {
-                            // Remove existing status classes
-                            const statusClasses = ['status-accepted', 'status-rejected', 'status-onhold', 'status-proceed', 'status-joined'];
-                            statusClasses.forEach(cls => selectElement.classList.remove(cls));
+    // Include _api_id for Guhatek API sync
+    const updatedRecord = {
+        ...record,
+        [column]: newStatus,
+        '_api_id': record['_api_id'] || null
+    };
 
-                            // Add old status class
-                            const oldStatusClass = getStatusClass(oldStatus);
-                            if (oldStatusClass) {
-                                selectElement.classList.add(oldStatusClass);
-                            }
-                        }
-                    }
-                }
-                fetchData(); // Revert change on failure
-            }
-        })
-        .catch(error => {
-            console.error('Error updating record:', error);
-            showNotification('Error updating record', 'error');
+    try {
+        const response = await fetch(API_BASE_URL + `/api/data/${index}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updatedRecord),
+        });
+
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            const syncMsg = data.api_synced ? ' (synced to API)' : '';
+            showNotification('Status updated successfully!' + syncMsg, 'success');
+            tableData[index][column] = newStatus; // Update local data to avoid full refresh
+        } else {
+            showNotification(data.message || 'Failed to update status.', 'error');
             // Revert cell color if update failed and we have the cell element
             if (rowElement && statusColumn === 'Application Status' && oldStatus !== null) {
-                // Find the Application Status cell
+                // Find the Application Status cell and select element
                 const statusCell = rowElement.querySelector("td[data-column='Application Status']");
                 if (statusCell) {
-                    // Remove existing status classes
-                    const statusClasses = ['status-accepted', 'status-rejected', 'status-onhold', 'status-proceed', 'status-joined'];
-                    statusClasses.forEach(cls => statusCell.classList.remove(cls));
+                    const selectElement = statusCell.querySelector('select');
+                    if (selectElement) {
+                        // Remove existing status classes
+                        const statusClasses = ['status-accepted', 'status-rejected', 'status-onhold', 'status-proceed', 'status-joined'];
+                        statusClasses.forEach(cls => selectElement.classList.remove(cls));
 
-                    // Add old status class
-                    const oldStatusClass = getStatusClass(oldStatus);
-                    if (oldStatusClass) {
-                        statusCell.classList.add(oldStatusClass);
+                        // Add old status class
+                        const oldStatusClass = getStatusClass(oldStatus);
+                        if (oldStatusClass) {
+                            selectElement.classList.add(oldStatusClass);
+                        }
                     }
                 }
             }
             fetchData(); // Revert change on failure
-        });
+        }
+    } catch (error) {
+        console.error('Error updating record:', error);
+        showNotification('Error updating record', 'error');
+        // Revert cell color if update failed and we have the cell element
+        if (rowElement && statusColumn === 'Application Status' && oldStatus !== null) {
+            // Find the Application Status cell
+            const statusCell = rowElement.querySelector("td[data-column='Application Status']");
+            if (statusCell) {
+                // Remove existing status classes
+                const statusClasses = ['status-accepted', 'status-rejected', 'status-onhold', 'status-proceed', 'status-joined'];
+                statusClasses.forEach(cls => statusCell.classList.remove(cls));
+
+                // Add old status class
+                const oldStatusClass = getStatusClass(oldStatus);
+                if (oldStatusClass) {
+                    statusCell.classList.add(oldStatusClass);
+                }
+            }
+        }
+        fetchData(); // Revert change on failure
+    }
 }
 
 
@@ -2201,8 +2232,43 @@ function openEditModal(index, isAdmin) {
             input = document.createElement('textarea');
             input.className = 'form-control';
             input.rows = column.includes('Remarks') || column.includes('Screening') ? 3 : 1;
-            input.value = record[column] || '';
-            input.maxLength = 120;
+
+            let displayValue = record[column] || '';
+
+            // Format date fields for better readability
+            if ((column === 'Date' || column === 'Round 1 D and T' || column === 'Round 2 D and T' || column === 'Joining Date') && displayValue) {
+                try {
+                    const date = new Date(displayValue);
+                    if (!isNaN(date.getTime())) {
+                        // Format as YYYY-MM-DD for input compatibility
+                        displayValue = date.toISOString().split('T')[0];
+                    }
+                } catch (e) {
+                    // Keep original value if parsing fails
+                }
+            }
+
+            // Parse Round 1/Round 2 Remarks JSON for readable display
+            if ((column === 'Round 1 Remarks' || column === 'Round 2 Remarks') && displayValue) {
+                try {
+                    const remarksObj = JSON.parse(displayValue);
+                    if (typeof remarksObj === 'object') {
+                        // Convert JSON to readable text format
+                        const lines = [];
+                        for (const [key, value] of Object.entries(remarksObj)) {
+                            if (value && value.toString().trim()) {
+                                lines.push(`${key}: ${value}`);
+                            }
+                        }
+                        displayValue = lines.length > 0 ? lines.join('\n') : '';
+                    }
+                } catch (e) {
+                    // Keep original value if not valid JSON
+                }
+            }
+
+            input.value = displayValue;
+            input.maxLength = 500; // Increased for remarks
             if (!isEditable) {
                 input.readOnly = true;
                 input.style.backgroundColor = '#e9ecef';
@@ -2243,52 +2309,43 @@ function showFinalRemarksDetail(finalValue, candidateIndex) {
 }
 
 // Function to save final remarks from the modal
-function saveFinalRemarksFromModal() {
+async function saveFinalRemarksFromModal() {
     const textArea = document.getElementById('finalRemarksTextArea');
     const newValue = textArea ? textArea.value : '';
     const candidateIndex = textArea ? textArea.getAttribute('data-candidate-index') : null;
 
     if (candidateIndex === null) return;
 
-    const updatedData = { 'Final Remarks': newValue };
-
-    fetch(API_BASE_URL + `/api/data/${candidateIndex}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedData),
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                showToast('Final Remarks updated successfully!', 'success');
-                // Update the table data
-                if (tableData[candidateIndex]) {
-                    tableData[candidateIndex]['Final Remarks'] = newValue;
-                }
-                // Also update original data
-                if (originalTableData[candidateIndex]) {
-                    originalTableData[candidateIndex]['Final Remarks'] = newValue;
-                }
-
-                // Update the table cell directly
-                updateFinalRemarksTableCell(candidateIndex, newValue);
-
-                // Close the modal
-                const modalElement = document.getElementById('finalRemarksModal');
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                if (modal) {
-                    modal.hide();
-                }
-            } else {
-                showToast(`Error updating final remarks: ${data.message}`, 'danger');
+    try {
+        const result = await updateCandidateData(parseInt(candidateIndex), { 'Final Remarks': newValue });
+        if (result.status === 'success') {
+            const syncMsg = result.api_synced ? ' (synced to API)' : '';
+            showToast('Final Remarks updated successfully!' + syncMsg, 'success');
+            // Update the table data
+            if (tableData[candidateIndex]) {
+                tableData[candidateIndex]['Final Remarks'] = newValue;
             }
-        })
-        .catch(error => {
-            console.error('Error saving final remarks:', error);
-            showToast('Error saving final remarks.', 'danger');
-        });
+            // Also update original data
+            if (originalTableData[candidateIndex]) {
+                originalTableData[candidateIndex]['Final Remarks'] = newValue;
+            }
+
+            // Update the table cell directly
+            updateFinalRemarksTableCell(candidateIndex, newValue);
+
+            // Close the modal
+            const modalElement = document.getElementById('finalRemarksModal');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            }
+        } else {
+            showToast(`Error updating final remarks: ${result.message}`, 'danger');
+        }
+    } catch (error) {
+        console.error('Error saving final remarks:', error);
+        showToast('Error saving final remarks.', 'danger');
+    }
 }
 
 // Function to update the Final Remarks table cell directly
@@ -2386,6 +2443,12 @@ function updateRecord() {
         formData.delete('Resume');
     }
 
+    // Include _api_id for Guhatek API sync
+    const candidate = tableData[index];
+    if (candidate && candidate['_api_id']) {
+        formData.append('_api_id', candidate['_api_id']);
+    }
+
     fetch(API_BASE_URL + `/api/data/${index}`, {
         method: 'PUT',
         body: formData
@@ -2393,7 +2456,8 @@ function updateRecord() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                showNotification('Record updated successfully!', 'success');
+                const syncMsg = data.api_synced ? ' (synced to API)' : '';
+                showNotification('Record updated successfully!' + syncMsg, 'success');
                 // Close modal first
                 bootstrap.Modal.getInstance(document.getElementById('editDataModal')).hide();
                 // Add a small delay to ensure backend has finished writing to Excel file

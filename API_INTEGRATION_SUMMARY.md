@@ -157,17 +157,106 @@ Merge with existing data & refresh table
 
 ---
 
-## 🚀 Next Steps (Optional)
+## 🔄 UPDATE Integration (PATCH API) - Added January 8, 2026
 
-If needed in the future:
-- [ ] Add option to **replace** instead of merge data
-- [ ] Add date filtering (only fetch recent applicants)
-- [ ] Store fetched applicants to Excel automatically
-- [ ] Add pagination for large datasets
-- [ ] Create admin-only access to this button
+### What Was Implemented
+
+#### Backend Updates (`app.py`)
+
+1. **Field Mapping (Lines 133-172)**
+   - `PORTAL_TO_API_FIELD_MAP`: Maps portal field names to API camelCase format
+   - Handles conversions: strings, booleans (Yes/No → true/false), numbers
+
+2. **Helper Functions (Lines 174-265)**
+   - `convert_portal_to_api_payload()`: Converts portal data to API format
+   - `update_applicant_via_api()`: Calls PATCH endpoint with proper auth
+
+3. **Enhanced GET `/api/data` (Lines 605-650)**
+   - Now includes `_api_id` field in response for each applicant
+   - Maps additional fields from API response (screening data, etc.)
+
+4. **Enhanced PUT `/api/data/<index>` (Lines 824-932)**
+   - Extracts `_api_id` from request payload
+   - Calls Guhatek PATCH API when `_api_id` is available
+   - Falls back to Excel-only storage if API fails
+   - Returns `api_synced` status in response
+
+#### Frontend Updates (`app.js`)
+
+1. **New Helper Function (Lines 13-52)**
+   - `updateCandidateData()`: Automatically includes `_api_id` in all update requests
+   - Logs API sync status for debugging
+
+2. **Updated Functions to Use Helper**:
+   - `saveOfferDetailsBtn` click handler
+   - `saveRound1RemarksBtn` click handler  
+   - `saveRound2RemarksBtn` click handler
+   - `saveFinalRemarksFromModal()`
+   - `updateRecordStatus()`
+   - `updateRecord()`
+
+### 🔧 PATCH API Flow
+
+```
+User Edits Candidate Data (e.g., Initial Screening, Round 1 Remarks)
+    ↓
+Frontend includes _api_id in PUT request
+    ↓
+Backend: Extracts _api_id from payload
+    ↓
+Backend: convert_portal_to_api_payload()
+    ↓
+Backend: TokenManager.get_token()
+    ↓
+Backend calls: PATCH https://api-dev.guhatek.org/api/applications/{id}
+    ├─→ Success? → Return {api_synced: true}
+    └─→ Fail? → Save to Excel only, return {api_synced: false}
+    ↓
+Frontend: Shows toast with sync status
+```
+
+### Field Mappings (Portal → API)
+
+| Portal Field | API Field (PATCH) |
+|--------------|-------------------|
+| Initial Screening | `initialScreening` |
+| Round 1 D and T | `round1Dt` |
+| Round 1 Remarks | `round1Feedback` |
+| Round 2 D and T | `round2Dt` |
+| Round 2 Remarks | `round2Feedback` |
+| Offered Position | `offeredPosition` |
+| Joining Date | `joiningDate` |
+| Reject Mail Sent | `rejectMailSent` |
+| Screened By | `screenedBy` |
+| Interview Status | `interviewStatus` |
+| Application Status | `applicationStatus` |
+| Remarks | `additionalInfo` |
+
+### Response Format
+
+```json
+{
+  "status": "success",
+  "message": "Data synced to API and saved locally",
+  "api_synced": true,
+  "api_message": "Applicant updated via API",
+  "excel_saved": true
+}
+```
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **API ID Tracking** | Each applicant's UUID stored as `_api_id` |
+| **Automatic Sync** | Updates auto-sync to Guhatek API when possible |
+| **Fallback Storage** | Excel backup used if API fails |
+| **Field Conversion** | Yes/No → boolean, strings cleaned |
+| **User Feedback** | Toast shows "(synced to API)" when successful |
+| **Screened By Tracking** | Automatically sets current user as screener |
 
 ---
 
-**Implementation Date**: January 5, 2026  
+**Last Updated**: January 8, 2026  
 **Developer**: Antigravity AI Assistant  
-**Status**: ✅ Complete and Ready for Testing
+**Status**: ✅ PATCH Integration Complete and Ready for Testing
