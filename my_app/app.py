@@ -279,63 +279,97 @@ def create_applicant_via_api(portal_data, resume_file=None):
     try:
         logger.info("Creating new applicant via Guhatek API")
         
+        # Helper to get non-empty value, checking both with-space and no-space versions
+        def get_val(key, default=None):
+            # Try with spaces first
+            val = portal_data.get(key, "")
+            if not val:
+                # Try without spaces (frontend form uses IDs without spaces)
+                no_space_key = key.replace(" ", "")
+                val = portal_data.get(no_space_key, "")
+            return val.strip() if val and str(val).strip() else default
+        
         # Build the applicationData payload (camelCase for API)
-        application_data = {
-            "fullName": portal_data.get("Name", ""),
-            "email": portal_data.get("Email ID", ""),
-            "contactNumber": portal_data.get("Contact Number", ""),
-            "linkedinProfile": portal_data.get("LinkedIn Profile", ""),
-            "interestedPosition": portal_data.get("Interested Position", ""),
-            "currentRole": portal_data.get("Current Role", ""),
-            "currentOrganization": portal_data.get("Current Organization", ""),
-            "currentLocation": portal_data.get("Current Location", ""),
-            "locationPreference": portal_data.get("Location Preference", ""),
-            "certifications": portal_data.get("Certifications", ""),
-            "referredBy": portal_data.get("Referred By", ""),
-            "additionalInfo": portal_data.get("Remarks", ""),
+        # Only include fields that have actual values
+        application_data = {}
+        
+        # Required fields - must be present
+        full_name = get_val("Name")
+        email = get_val("Email ID")  # Also checks EmailID
+        contact = get_val("Contact Number")  # Also checks ContactNumber
+        
+        if not full_name or not email or not contact:
+            logger.warning("Missing required fields for API: Name, Email ID, or Contact Number")
+            return False, "Missing required fields: Name, Email, or Contact Number", None
+        
+        application_data["fullName"] = full_name
+        application_data["email"] = email
+        application_data["contactNumber"] = contact
+        
+        # Optional string fields - only add if non-empty
+        optional_fields = {
+            "LinkedIn Profile": "linkedinProfile",
+            "Interested Position": "interestedPosition",
+            "Current Role": "currentRole",
+            "Current Organization": "currentOrganization",
+            "Current Location": "currentLocation",
+            "Location Preference": "locationPreference",
+            "Certifications": "certifications",
+            "Referred By": "referredBy",
+            "Remarks": "additionalInfo",
+            "Notice Period": "noticePeriod",
         }
         
+        for portal_key, api_key in optional_fields.items():
+            val = get_val(portal_key)
+            if val:
+                application_data[api_key] = val
+        
         # Handle numeric fields
-        total_exp = portal_data.get("Total Years of Experience", "")
+        total_exp = get_val("Total Years of Experience")
         if total_exp:
             try:
                 # Extract number from experience string (e.g., "2-3 years" -> 2)
                 exp_num = re.search(r'\d+', str(total_exp))
-                application_data["totalExperience"] = int(exp_num.group()) if exp_num else None
+                if exp_num:
+                    application_data["totalExperience"] = int(exp_num.group())
             except:
-                application_data["totalExperience"] = None
+                pass
         
-        current_ctc = portal_data.get("Current CTC per Annum", "")
+        current_ctc = get_val("Current CTC per Annum")
         if current_ctc:
             try:
-                application_data["currentCTC"] = int(current_ctc)
+                # Remove commas and convert to int
+                ctc_num = re.sub(r'[^\d]', '', str(current_ctc))
+                if ctc_num:
+                    application_data["currentCTC"] = int(ctc_num)
             except:
                 pass
         
-        expected_ctc = portal_data.get("Expected CTC per Annum", "")
+        expected_ctc = get_val("Expected CTC per Annum")
         if expected_ctc:
             try:
-                application_data["expectedCTC"] = int(expected_ctc)
+                ctc_num = re.sub(r'[^\d]', '', str(expected_ctc))
+                if ctc_num:
+                    application_data["expectedCTC"] = int(ctc_num)
             except:
                 pass
         
-        # Handle notice period
-        notice_period = portal_data.get("Notice Period", "")
-        if notice_period:
-            application_data["noticePeriod"] = notice_period
+        # Handle boolean fields - only add if explicitly set
+        in_notice = get_val("In Notice")
+        if in_notice:
+            application_data["currentlyInNotice"] = in_notice.lower() in ["yes", "true", "1"]
         
-        # Handle boolean fields
-        in_notice = portal_data.get("In Notice", "")
-        application_data["currentlyInNotice"] = in_notice.lower() == "yes" if in_notice else False
+        immediate_joiner = get_val("Immediate Joiner")
+        if immediate_joiner:
+            application_data["immediateJoiner"] = immediate_joiner.lower() in ["yes", "true", "1"]
         
-        immediate_joiner = portal_data.get("Immediate Joiner", "")
-        application_data["immediateJoiner"] = immediate_joiner.lower() == "yes" if immediate_joiner else False
+        offers_in_hand = get_val("Offers in Hand")
+        if offers_in_hand:
+            application_data["otherOffersInHand"] = offers_in_hand.lower() in ["yes", "true", "1"]
         
-        offers_in_hand = portal_data.get("Offers in Hand", "")
-        application_data["otherOffersInHand"] = offers_in_hand.lower() == "yes" if offers_in_hand else False
-        
-        # Add timestamp
-        application_data["submittedAt"] = datetime.now().isoformat() + "Z"
+        # Add timestamp in proper ISO format
+        application_data["submittedAt"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")
         
         # Screening fields (if provided during add)
         if portal_data.get("Initial Screening"):
@@ -345,33 +379,51 @@ def create_applicant_via_api(portal_data, resume_file=None):
         if portal_data.get("Application Status"):
             application_data["applicationStatus"] = portal_data.get("Application Status")
         
-        logger.info(f"Application data payload: {application_data}")
+        logger.info(f"Application data payload: {json.dumps(application_data, indent=2)}")
         
         # Get token
         token = token_manager.get_token()
         
         # Prepare multipart form data
-        files = {}
-        if resume_file:
-            files['file'] = (resume_file.filename, resume_file.stream, 'application/pdf')
-        
         # The API expects applicationData as a JSON string in form data
         form_data = {
             'applicationData': json.dumps(application_data)
         }
         
+        # Prepare files dict - only include if resume provided
+        files = None
+        if resume_file and hasattr(resume_file, 'filename') and resume_file.filename:
+            # Reset file position before reading
+            resume_file.seek(0)
+            files = {'file': (resume_file.filename, resume_file.stream, 'application/pdf')}
+            logger.info(f"Uploading resume: {resume_file.filename}")
+        else:
+            # Guhatek API requires a resume file for new applications
+            logger.warning("No resume file provided - Guhatek API requires resume for new applications")
+            return False, "Resume required for API sync (save locally succeeded)", None
+        
         # Call POST endpoint
+        logger.info(f"Calling POST {token_manager.api_base_url}/api/applications")
+        
         response = requests.post(
             f"{token_manager.api_base_url}/api/applications",
             headers={
                 "Authorization": f"Bearer {token}"
             },
             data=form_data,
-            files=files if files else None,
+            files=files,
             timeout=30  # Longer timeout for file upload
         )
         
-        response.raise_for_status()
+        # Log response details for debugging
+        logger.info(f"API Response status: {response.status_code}")
+        logger.info(f"API Response body: {response.text[:500] if response.text else 'empty'}")
+        
+        if response.status_code >= 400:
+            # Log the full error details
+            logger.error(f"API Error {response.status_code}: {response.text}")
+            return False, f"API error ({response.status_code}): {response.text[:200]}", None
+        
         result = response.json()
         
         if result.get("success"):
@@ -379,14 +431,18 @@ def create_applicant_via_api(portal_data, resume_file=None):
             logger.info(f"Successfully created applicant via API with ID: {applicant_id}")
             return True, "Applicant created via API", applicant_id
         else:
-            logger.warning("API returned success=false for new applicant")
-            return False, "API creation failed", None
+            error_msg = result.get("message", "Unknown error")
+            logger.warning(f"API returned success=false: {error_msg}")
+            return False, f"API creation failed: {error_msg}", None
             
     except requests.exceptions.Timeout:
         logger.error("API timeout while creating applicant")
         return False, "API request timed out", None
     except requests.exceptions.RequestException as e:
         logger.error(f"API error creating applicant: {str(e)}")
+        # Try to get response body if available
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"Response body: {e.response.text[:500] if e.response.text else 'empty'}")
         return False, f"API error: {str(e)}", None
     except Exception as e:
         logger.error(f"Unexpected error creating applicant: {str(e)}")
