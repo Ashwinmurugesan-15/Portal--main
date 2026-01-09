@@ -265,6 +265,135 @@ def update_applicant_via_api(applicant_id, portal_data):
         return False, f"Unexpected error: {str(e)}", None
 
 
+def create_applicant_via_api(portal_data, resume_file=None):
+    """
+    Create a new applicant via the Guhatek POST API.
+    
+    Args:
+        portal_data: Dictionary of portal field names and values
+        resume_file: Optional file object for resume upload
+    
+    Returns:
+        tuple: (success: bool, message: str, applicant_id: str or None)
+    """
+    try:
+        logger.info("Creating new applicant via Guhatek API")
+        
+        # Build the applicationData payload (camelCase for API)
+        application_data = {
+            "fullName": portal_data.get("Name", ""),
+            "email": portal_data.get("Email ID", ""),
+            "contactNumber": portal_data.get("Contact Number", ""),
+            "linkedinProfile": portal_data.get("LinkedIn Profile", ""),
+            "interestedPosition": portal_data.get("Interested Position", ""),
+            "currentRole": portal_data.get("Current Role", ""),
+            "currentOrganization": portal_data.get("Current Organization", ""),
+            "currentLocation": portal_data.get("Current Location", ""),
+            "locationPreference": portal_data.get("Location Preference", ""),
+            "certifications": portal_data.get("Certifications", ""),
+            "referredBy": portal_data.get("Referred By", ""),
+            "additionalInfo": portal_data.get("Remarks", ""),
+        }
+        
+        # Handle numeric fields
+        total_exp = portal_data.get("Total Years of Experience", "")
+        if total_exp:
+            try:
+                # Extract number from experience string (e.g., "2-3 years" -> 2)
+                exp_num = re.search(r'\d+', str(total_exp))
+                application_data["totalExperience"] = int(exp_num.group()) if exp_num else None
+            except:
+                application_data["totalExperience"] = None
+        
+        current_ctc = portal_data.get("Current CTC per Annum", "")
+        if current_ctc:
+            try:
+                application_data["currentCTC"] = int(current_ctc)
+            except:
+                pass
+        
+        expected_ctc = portal_data.get("Expected CTC per Annum", "")
+        if expected_ctc:
+            try:
+                application_data["expectedCTC"] = int(expected_ctc)
+            except:
+                pass
+        
+        # Handle notice period
+        notice_period = portal_data.get("Notice Period", "")
+        if notice_period:
+            application_data["noticePeriod"] = notice_period
+        
+        # Handle boolean fields
+        in_notice = portal_data.get("In Notice", "")
+        application_data["currentlyInNotice"] = in_notice.lower() == "yes" if in_notice else False
+        
+        immediate_joiner = portal_data.get("Immediate Joiner", "")
+        application_data["immediateJoiner"] = immediate_joiner.lower() == "yes" if immediate_joiner else False
+        
+        offers_in_hand = portal_data.get("Offers in Hand", "")
+        application_data["otherOffersInHand"] = offers_in_hand.lower() == "yes" if offers_in_hand else False
+        
+        # Add timestamp
+        application_data["submittedAt"] = datetime.now().isoformat() + "Z"
+        
+        # Screening fields (if provided during add)
+        if portal_data.get("Initial Screening"):
+            application_data["initialScreening"] = portal_data.get("Initial Screening")
+        if portal_data.get("Interview Status"):
+            application_data["interviewStatus"] = portal_data.get("Interview Status")
+        if portal_data.get("Application Status"):
+            application_data["applicationStatus"] = portal_data.get("Application Status")
+        
+        logger.info(f"Application data payload: {application_data}")
+        
+        # Get token
+        token = token_manager.get_token()
+        
+        # Prepare multipart form data
+        files = {}
+        if resume_file:
+            files['file'] = (resume_file.filename, resume_file.stream, 'application/pdf')
+        
+        # The API expects applicationData as a JSON string in form data
+        form_data = {
+            'applicationData': json.dumps(application_data)
+        }
+        
+        # Call POST endpoint
+        response = requests.post(
+            f"{token_manager.api_base_url}/api/applications",
+            headers={
+                "Authorization": f"Bearer {token}"
+            },
+            data=form_data,
+            files=files if files else None,
+            timeout=30  # Longer timeout for file upload
+        )
+        
+        response.raise_for_status()
+        result = response.json()
+        
+        if result.get("success"):
+            applicant_id = result.get("id")
+            logger.info(f"Successfully created applicant via API with ID: {applicant_id}")
+            return True, "Applicant created via API", applicant_id
+        else:
+            logger.warning("API returned success=false for new applicant")
+            return False, "API creation failed", None
+            
+    except requests.exceptions.Timeout:
+        logger.error("API timeout while creating applicant")
+        return False, "API request timed out", None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"API error creating applicant: {str(e)}")
+        return False, f"API error: {str(e)}", None
+    except Exception as e:
+        logger.error(f"Unexpected error creating applicant: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return False, f"Unexpected error: {str(e)}", None
+
 
 @app.context_processor
 def inject_app_config():
@@ -800,7 +929,15 @@ def get_data():
 @app.route('/api/data', methods=['POST'])
 @login_required
 def add_data():
+    """
+    Add a new candidate.
+    Primary: Sync to Guhatek API via POST.
+    Secondary: Save to local Excel as backup.
+    """
     try:
+        resume_file = None
+        local_filename = None
+        
         # Handle multipart/form-data (for file uploads) or application/json
         if request.is_json:
             new_data = request.json
@@ -809,17 +946,79 @@ def add_data():
             if 'Resume' in request.files:
                 file = request.files['Resume']
                 if file and file.filename:
-                    # Create a safe, timestamped filename
-                    filename = f"{int(time.time())}_{file.filename}"
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                    new_data['Resume'] = filename
+                    # Store file reference for API upload
+                    resume_file = file
+                    # Also save locally as backup
+                    local_filename = f"{int(time.time())}_{file.filename}"
+                    # We need to save the file position for later local save
+                    file_content = file.read()
+                    file.seek(0)  # Reset for API upload
+        
+        # Add timestamp if not present
+        if 'Date' not in new_data or not new_data['Date']:
+            new_data['Date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        logger.info(f"Adding new candidate: {new_data.get('Name', 'Unknown')}")
+        
+        # ==========================================
+        # PRIMARY: Create via Guhatek API (POST)
+        # ==========================================
+        api_success = False
+        api_message = ""
+        api_id = None
+        
+        try:
+            api_success, api_message, api_id = create_applicant_via_api(new_data, resume_file)
+            if api_success:
+                logger.info(f"API creation successful, ID: {api_id}")
+                new_data['_api_id'] = api_id  # Store API ID for future updates
+            else:
+                logger.warning(f"API creation failed: {api_message}")
+        except Exception as api_error:
+            logger.error(f"Error calling API: {str(api_error)}")
+            api_message = str(api_error)
+        
+        # ==========================================
+        # SECONDARY: Save to local Excel (backup)
+        # ==========================================
+        # Save resume file locally if we have it
+        if resume_file and local_filename:
+            try:
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], local_filename)
+                with open(file_path, 'wb') as f:
+                    f.write(file_content)
+                new_data['Resume'] = local_filename
+            except Exception as file_error:
+                logger.error(f"Error saving resume locally: {str(file_error)}")
         
         data = load_data()
         data.append(new_data)
         save_data(data)
-        return jsonify({"status": "success", "message": "Data added successfully"})
+        
+        # ==========================================
+        # Return response
+        # ==========================================
+        if api_success:
+            return jsonify({
+                "status": "success",
+                "message": "Candidate added and synced to API",
+                "api_synced": True,
+                "api_id": api_id,
+                "api_message": api_message
+            })
+        else:
+            return jsonify({
+                "status": "success",
+                "message": "Candidate added locally (API sync pending)",
+                "api_synced": False,
+                "api_message": api_message
+            })
+            
     except Exception as e:
+        import traceback
+        logger.error(f"Error adding data: {traceback.format_exc()}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route('/api/data/<int:index>', methods=['PUT'])
 @login_required

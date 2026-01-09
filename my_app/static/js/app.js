@@ -2415,7 +2415,10 @@ function saveNewRecord() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                showNotification('Record added successfully!', 'success');
+                const syncMsg = data.api_synced ? ' (synced to API)' : ' (saved locally)';
+                showNotification('Candidate added successfully!' + syncMsg, 'success');
+                // Log API sync status
+                console.log('Add candidate result:', data);
                 // Close modal first
                 bootstrap.Modal.getInstance(document.getElementById('addDataModal')).hide();
                 // Add a small delay to ensure backend has finished writing to Excel file
@@ -2423,12 +2426,12 @@ function saveNewRecord() {
                     fetchData(); // Refresh table
                 }, 300);
             } else {
-                showNotification(data.message || 'Failed to add record.', 'error');
+                showNotification(data.message || 'Failed to add candidate.', 'error');
             }
         })
         .catch(error => {
-            console.error('Error adding record:', error);
-            showNotification('Error adding record', 'error');
+            console.error('Error adding candidate:', error);
+            showNotification('Error adding candidate', 'error');
         });
 }
 

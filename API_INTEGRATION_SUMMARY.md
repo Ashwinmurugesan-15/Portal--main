@@ -257,6 +257,100 @@ Frontend: Shows toast with sync status
 
 ---
 
-**Last Updated**: January 8, 2026  
+## ➕ CREATE Integration (POST API) - Added January 9, 2026
+
+### What Was Implemented
+
+#### Backend Updates (`app.py`)
+
+1. **New Helper Function: `create_applicant_via_api()`**
+   - Calls POST `/api/applications` endpoint
+   - Sends multipart form data with resume file + JSON application data
+   - Converts portal field names to API camelCase format
+   - Handles numeric fields (CTC, experience) and boolean fields (In Notice, etc.)
+   - Returns applicant ID from API for future updates
+
+2. **Enhanced POST `/api/data` Endpoint**
+   - Now calls Guhatek POST API first for new candidates
+   - Uploads resume file to Guhatek MinIO storage
+   - Stores returned `_api_id` for future PATCH updates
+   - Falls back to local Excel storage if API fails
+   - Returns `api_synced` status in response
+
+### 🔧 POST API Flow
+
+```
+User Clicks "Add New Candidate" & Submits Form
+    ↓
+Frontend sends: POST /api/data (with form data + resume)
+    ↓
+Backend: TokenManager.get_token()
+    ↓
+Backend: create_applicant_via_api()
+    ↓
+Backend calls: POST https://api-dev.guhatek.org/api/applications
+    Headers: Authorization: Bearer <token>
+    Body: multipart/form-data
+        - file: resume.pdf
+        - applicationData: {JSON with camelCase fields}
+    ↓
+API Response: {"success": true, "id": "uuid-here"}
+    ↓
+Backend: Store _api_id, Save to Excel backup
+    ↓
+Frontend: Shows "Candidate added successfully! (synced to API)"
+```
+
+### Field Mapping (Portal → API POST)
+
+| Portal Field | API Field (POST) |
+|--------------|------------------|
+| Name | `fullName` |
+| Email ID | `email` |
+| Contact Number | `contactNumber` |
+| LinkedIn Profile | `linkedinProfile` |
+| Interested Position | `interestedPosition` |
+| Current Role | `currentRole` |
+| Current Organization | `currentOrganization` |
+| Current Location | `currentLocation` |
+| Location Preference | `locationPreference` |
+| Total Years of Experience | `totalExperience` |
+| Current CTC per Annum | `currentCTC` |
+| Expected CTC per Annum | `expectedCTC` |
+| Notice Period | `noticePeriod` |
+| In Notice | `currentlyInNotice` |
+| Immediate Joiner | `immediateJoiner` |
+| Offers in Hand | `otherOffersInHand` |
+| Certifications | `certifications` |
+| Referred By | `referredBy` |
+| Remarks | `additionalInfo` |
+
+### Response Format
+
+```json
+{
+  "status": "success",
+  "message": "Candidate added and synced to API",
+  "api_synced": true,
+  "api_id": "uuid-of-new-applicant",
+  "api_message": "Applicant created via API"
+}
+```
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Resume Upload** | Uploads PDF to Guhatek MinIO storage |
+| **Field Conversion** | Automatic camelCase conversion for API |
+| **Numeric Handling** | Parses CTC and experience values |
+| **Boolean Handling** | Converts Yes/No to true/false |
+| **Timestamp** | Adds `submittedAt` automatically |
+| **Fallback** | Saves locally if API fails |
+| **ID Tracking** | Stores API ID for future PATCH updates |
+
+---
+
+**Last Updated**: January 9, 2026  
 **Developer**: Antigravity AI Assistant  
-**Status**: ✅ PATCH Integration Complete and Ready for Testing
+**Status**: ✅ POST + PATCH Integration Complete and Ready for Testing
