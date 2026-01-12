@@ -164,7 +164,7 @@ PORTAL_TO_API_FIELD_MAP = {
     "In Notice": "currentlyInNotice",
     "Immediate Joiner": "immediateJoiner",
     "Offers in Hand": "otherOffersInHand",
-    "Offered CTC": "offeredCtc",
+    "Offered CTC": "offeredCTC",
     "Certifications": "certifications",
     "Referred By": "referredBy",
 }
@@ -177,6 +177,9 @@ def convert_portal_to_api_payload(portal_data):
     """
     api_payload = {}
     
+    # Characters that should be treated as None/empty
+    placeholders = ["—", "-", "", "None", "null"]
+    
     for portal_key, value in portal_data.items():
         # Skip non-mappable fields
         if portal_key not in PORTAL_TO_API_FIELD_MAP:
@@ -184,23 +187,32 @@ def convert_portal_to_api_payload(portal_data):
         
         api_key = PORTAL_TO_API_FIELD_MAP[portal_key]
         
+        # Clean value
+        cleaned_value = value
+        if isinstance(value, str):
+            cleaned_value = value.strip()
+            if cleaned_value in placeholders:
+                cleaned_value = None
+        
         # Handle boolean conversions
         if portal_key in ["In Notice", "Immediate Joiner", "Offers in Hand"]:
-            api_payload[api_key] = value.lower() == "yes" if value else False
+            api_payload[api_key] = str(cleaned_value).lower() == "yes" if cleaned_value else False
         elif portal_key == "Reject Mail Sent":
-            api_payload[api_key] = value.lower() == "yes" if value else False
+            api_payload[api_key] = str(cleaned_value).lower() == "yes" if cleaned_value else False
         # Handle numeric conversions
         elif portal_key in ["Current CTC per Annum", "Expected CTC per Annum", "Offered CTC", "Total Years of Experience"]:
-            if value:
+            if cleaned_value:
                 try:
-                    api_payload[api_key] = int(value)
+                    # Remove any non-numeric chars (like currency symbols if any)
+                    numeric_val = "".join(filter(str.isdigit, str(cleaned_value)))
+                    api_payload[api_key] = int(numeric_val) if numeric_val else None
                 except (ValueError, TypeError):
-                    api_payload[api_key] = value
+                    api_payload[api_key] = None
             else:
                 api_payload[api_key] = None
         else:
             # String fields
-            api_payload[api_key] = value if value else None
+            api_payload[api_key] = cleaned_value if cleaned_value else None
     
     return api_payload
 
@@ -228,7 +240,10 @@ def update_applicant_via_api(applicant_id, portal_data):
             logger.info("No mappable fields to update via API")
             return True, "No API-mappable fields to update", None
         
-        logger.info(f"Updating applicant {applicant_id} via API with payload: {api_payload}")
+        debug_info = f"\n🔄 SENDING TO API:\nURL: {token_manager.api_base_url}/api/applications/{applicant_id}\nPayload: {api_payload}\n"
+        logger.info(debug_info)
+        with open("api_debug.log", "a", encoding="utf-8") as f:
+            f.write(debug_info)
         
         # Get token
         token = token_manager.get_token()
@@ -258,7 +273,15 @@ def update_applicant_via_api(applicant_id, portal_data):
         logger.error(f"API timeout while updating applicant {applicant_id}")
         return False, "API request timed out", None
     except requests.exceptions.RequestException as e:
-        logger.error(f"API error updating applicant {applicant_id}: {str(e)}")
+        error_body = ""
+        if hasattr(e, 'response') and e.response is not None:
+            error_body = e.response.text
+        
+        debug_err = f"\n❌ API UPDATE ERROR\nApplicant ID: {applicant_id}\nError: {str(e)}\nStatus Code: {e.response.status_code if hasattr(e, 'response') and e.response is not None else 'N/A'}\nResponse Body:\n{error_body}\n"
+        logger.error(debug_err)
+        with open("api_debug.log", "a", encoding="utf-8") as f:
+            f.write(debug_err)
+        
         return False, f"API error: {str(e)}", None
     except Exception as e:
         logger.error(f"Unexpected error updating applicant {applicant_id}: {str(e)}")
@@ -417,38 +440,47 @@ def create_applicant_via_api(portal_data, resume_file=None):
         
         # Log response details for debugging
         logger.info(f"API Response status: {response.status_code}")
-        logger.info(f"API Response body: {response.text[:500] if response.text else 'empty'}")
         
-        if response.status_code >= 400:
-            # Log the full error details
-            logger.error(f"API Error {response.status_code}: {response.text}")
-            return False, f"API error ({response.status_code}): {response.text[:200]}", None
-        
-        result = response.json()
-        
-        if result.get("success"):
-            applicant_id = result.get("id")
-            logger.info(f"Successfully created applicant via API with ID: {applicant_id}")
-            return True, "Applicant created via API", applicant_id
-        else:
-            error_msg = result.get("message", "Unknown error")
-            logger.warning(f"API returned success=false: {error_msg}")
-            return False, f"API creation failed: {error_msg}", None
+        try:
+            result = response.json()
+        except:
+            result = {"success": False, "message": "Invalid JSON response"}
             
-    except requests.exceptions.Timeout:
-        logger.error("API timeout while creating applicant")
-        return False, "API request timed out", None
+        if response.status_code < 400 and result.get("success"):
+            # Success!
+            applicant_id = result.get("data", {}).get("id") or result.get("id")
+            logger.info(f"Successfully created applicant via API with ID: {applicant_id}")
+            return True, "Successfully created applicant", applicant_id
+        else:
+            # API Error
+            error_msg = result.get("message") or result.get("error") or "Unknown error"
+            logger.warning(f"API failure ({response.status_code}): {error_msg}")
+            
+            # Log to debug file
+            debug_err = f"\n❌ API CREATE FAILURE\nURL: {token_manager.api_base_url}/api/applications\nStatus: {response.status_code}\nResponse: {response.text}\n"
+            with open("api_debug.log", "a", encoding="utf-8") as f:
+                f.write(debug_err)
+                
+            return False, f"API error: {error_msg}", None
+            
     except requests.exceptions.RequestException as e:
-        logger.error(f"API error creating applicant: {str(e)}")
-        # Try to get response body if available
+        error_body = ""
         if hasattr(e, 'response') and e.response is not None:
-            logger.error(f"Response body: {e.response.text[:500] if e.response.text else 'empty'}")
-        return False, f"API error: {str(e)}", None
+            error_body = e.response.text
+            
+        debug_err = f"\n❌ API CREATE CONNECTION ERROR\nError: {str(e)}\nStatus Code: {e.response.status_code if hasattr(e, 'response') and e.response is not None else 'N/A'}\nResponse Body:\n{error_body}\n"
+        logger.error(debug_err)
+        with open("api_debug.log", "a", encoding="utf-8") as f:
+            f.write(debug_err)
+            
+        return False, f"API connection error: {str(e)}", None
     except Exception as e:
-        logger.error(f"Unexpected error creating applicant: {str(e)}")
         import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return False, f"Unexpected error: {str(e)}", None
+        debug_err = f"\n❌ API CREATE CRASH\nError: {str(e)}\nTraceback:\n{traceback.format_exc()}\n"
+        logger.error(debug_err)
+        with open("api_debug.log", "a", encoding="utf-8") as f:
+            f.write(debug_err)
+        return False, f"Internal error during API call: {str(e)}", None
 
 
 @app.context_processor
@@ -1138,40 +1170,49 @@ def update_data(index):
         # ==========================================
         # SECONDARY: Update local Excel (backup)
         # ==========================================
-        data = load_data()
         excel_update_success = False
+        excel_skip_reason = None
         
-        # Check if index is valid for Excel
-        if 0 <= index < len(data):
-            # Update the data at the specified index
-            for key, value in update_payload.items():
-                # Convert specific fields to appropriate types if necessary
-                if key in ['Current CTC per Annum', 'Expected CTC per Annum', 'Offered CTC']:
-                    try:
-                        data[index][key] = int(value) if value else ''
-                    except (ValueError, TypeError):
-                        data[index][key] = value  # Keep original if conversion fails
-                else:
-                    # Ensure all values are strings or None
-                    data[index][key] = str(value) if value is not None else ''
+        try:
+            data = load_data()
             
-            save_data(data)
-            excel_update_success = True
-            logger.info(f"Excel update successful for index {index}")
-        else:
-            logger.warning(f"Invalid index {index} for Excel update")
+            # Check if index is valid for Excel
+            if 0 <= index < len(data):
+                # Update the data at the specified index
+                for key, value in update_payload.items():
+                    # Convert specific fields to appropriate types if necessary
+                    if key in ['Current CTC per Annum', 'Expected CTC per Annum', 'Offered CTC']:
+                        try:
+                            data[index][key] = int(value) if value else ''
+                        except (ValueError, TypeError):
+                            data[index][key] = value  # Keep original if conversion fails
+                    else:
+                        # Ensure all values are strings or None
+                        data[index][key] = str(value) if value is not None else ''
+                
+                save_data(data)
+                excel_update_success = True
+                logger.info(f"Excel update successful for index {index}")
+            else:
+                excel_skip_reason = f"Index {index} out of range (Excel has {len(data)} records)"
+                logger.warning(f"Skipping Excel update: {excel_skip_reason}")
+        except Exception as excel_error:
+            excel_skip_reason = f"Excel error: {str(excel_error)}"
+            logger.warning(f"Skipping Excel update: {excel_skip_reason}")
         
         # ==========================================
         # Return response based on update status
         # ==========================================
         if api_update_success:
-            # API update succeeded (primary success)
+            # API update succeeded (primary success) - return success even if Excel failed
+            message = "Data updated successfully" if excel_update_success else "Data updated (Excel backup skipped)"
             return jsonify({
                 "status": "success",
-                "message": "Data synced to API and saved locally",
+                "message": message,
                 "api_synced": True,
                 "api_message": api_message,
-                "excel_saved": excel_update_success
+                "excel_saved": excel_update_success,
+                "excel_skip_reason": excel_skip_reason
             })
         elif excel_update_success:
             # API failed but Excel succeeded (fallback success)
@@ -1183,20 +1224,36 @@ def update_data(index):
                 "excel_saved": True
             })
         else:
-            # Both failed
-            return jsonify({
-                "status": "error",
-                "message": f"No record found at index {index}",
-                "api_synced": False,
-                "api_message": api_message,
-                "excel_saved": False
-            }), 404
+            # Both failed - only return error if API has no ID to update
+            if not api_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "No API ID available and Excel index invalid",
+                    "api_synced": False,
+                    "api_message": api_message,
+                    "excel_saved": False,
+                    "excel_skip_reason": excel_skip_reason
+                }), 404
+            else:
+                # API update failed but at least we tried
+                return jsonify({
+                    "status": "error",
+                    "message": f"Update failed: {api_message}",
+                    "api_synced": False,
+                    "api_message": api_message,
+                    "excel_saved": False,
+                    "excel_skip_reason": excel_skip_reason
+                }), 500
             
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        logger.error(f"Error updating data: {error_trace}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        logger.error(f"===== UPDATE DATA ERROR =====")
+        logger.error(f"Index: {index}")
+        logger.error(f"Error: {str(e)}")
+        logger.error(f"Traceback:\n{error_trace}")
+        logger.error(f"=============================")
+        return jsonify({"status": "error", "message": f"Server error: {str(e)}"}), 500
 
 @app.route('/api/data/<int:index>', methods=['DELETE'])
 @login_required

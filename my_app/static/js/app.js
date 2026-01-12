@@ -918,10 +918,9 @@ function populateStatusFilterOptions() {
 
 // Fetch data from the API
 function fetchData() {
-
     // Add cache-busting parameter to prevent browser caching
     const cacheBuster = `?_t=${new Date().getTime()}`;
-    fetch(API_BASE_URL + '/api/data' + cacheBuster)
+    return fetch(API_BASE_URL + '/api/data' + cacheBuster)
         .then(response => {
 
             if (!response.ok) {
